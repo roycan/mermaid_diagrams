@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mermaid → Image Converter</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link rel="stylesheet" href="style.css">
+  <!-- Mermaid -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <!-- Canvg: svg->canvas for PNG -->
+  <script src="https://cdn.jsdelivr.net/npm/canvg@3.0.1/lib/umd.js"></script>
+</head>
+<body>
+  <nav class="navbar is-primary" role="navigation">
+    <div class="navbar-brand">
+      <a class="navbar-item has-text-weight-bold">Mermaid → Image Converter</a>
+    </div>
+  </nav>
+
+  <section class="section">
+    <div class="container">
+      <div id="toast" class="notification is-hidden"></div>
+
+      <div class="columns is-variable is-6 is-multiline">
+        <!-- Editor -->
+        <div class="column is-6">
+          <div class="box">
+            <h2 class="title is-5">Diagram editor</h2>
+
+            <!-- Toolbar -->
+            <div class="field is-grouped is-grouped-multiline">
+              <div class="control">
+                <div class="dropdown" id="template-dropdown">
+                  <div class="dropdown-trigger">
+                    <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
+                      <span>Insert template</span>
+                      <span class="icon is-small">▼</span>
+                    </button>
+                  </div>
+                  <div class="dropdown-menu" role="menu">
+                    <div class="dropdown-content" id="template-list">
+                      <!-- Templates injected by JS -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="control">
+                <button id="btn-render" class="button is-link">Render (Ctrl/Cmd+Enter)</button>
+              </div>
+              <div class="control">
+                <button id="btn-clear" class="button is-light">Clear</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label">Mermaid code</label>
+              <div class="control">
+                <textarea id="mmd-input" class="textarea is-family-monospace" rows="16" placeholder="Enter Mermaid code here..."></textarea>
+              </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="box mt-4">
+              <h3 class="title is-6">Settings</h3>
+              <div class="columns is-multiline">
+                <div class="column is-6">
+                  <div class="field">
+                    <label class="label">Theme</label>
+                    <div class="control">
+                      <div class="select is-fullwidth">
+                        <select id="theme">
+                          <option value="default">default</option>
+                          <option value="dark">dark</option>
+                          <option value="forest">forest</option>
+                          <option value="neutral">neutral</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="column is-6">
+                  <div class="field">
+                    <label class="label">Direction (flowchart)</label>
+                    <div class="control">
+                      <div class="select is-fullwidth">
+                        <select id="direction">
+                          <option value="">auto</option>
+                          <option value="TB">TB</option>
+                          <option value="TD">TD</option>
+                          <option value="BT">BT</option>
+                          <option value="LR">LR</option>
+                          <option value="RL">RL</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Presets -->
+              <div class="field">
+                <label class="label">Presets</label>
+                <div class="buttons">
+                  <button id="preset-poster" class="button is-warning" title="PNG scale 3, white bg, padding 32">Poster mode</button>
+                  <button id="preset-lms" class="button is-info" title="PNG scale 2, transparent bg, padding 16">LMS mode</button>
+                  <button id="preset-quickshare" class="button is-light" title="Use Copy SVG or Permalink for quick sharing">Quick share (SVG)</button>
+                </div>
+                <p class="help">Presets pre-fill export settings (they don’t auto-download).</p>
+              </div>
+
+              <!-- Advanced options accordion -->
+              <div class="field">
+                <button id="toggle-advanced" class="button is-small is-light">More options ▸</button>
+              </div>
+
+              <div id="advanced-panel" class="is-hidden">
+                <div class="columns is-multiline">
+                  <div class="column is-6">
+                    <div class="field">
+                      <label class="label">PNG scale</label>
+                      <div class="control">
+                        <input id="scale" class="input" type="number" min="1" max="4" step="1" value="2">
+                      </div>
+                      <p class="help">Higher scale = sharper PNG export</p>
+                    </div>
+                  </div>
+
+                  <div class="column is-6">
+                    <div class="field">
+                      <label class="label">Background</label>
+                      <div class="control">
+                        <input id="bg" class="input" type="text" value="#ffffff">
+                      </div>
+                      <p class="help">Use "transparent" for no background</p>
+                    </div>
+                  </div>
+
+                  <div class="column is-6">
+                    <div class="field">
+                      <label class="label">Padding (px)</label>
+                      <div class="control">
+                        <input id="padding" class="input" type="number" min="0" max="200" step="4" value="16">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="column is-6">
+                    <div class="field">
+                      <label class="label">Filename</label>
+                      <div class="control">
+                        <input id="filename" class="input" type="text" placeholder="diagram" value="diagram">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <button id="btn-reset" class="button is-small is-danger is-light">Reset to defaults</button>
+                </div>
+              </div>
+
+              <!-- Export -->
+              <div class="buttons mt-2">
+                <button id="btn-copy-svg" class="button is-info">Copy SVG</button>
+                <button id="btn-download-svg" class="button is-success">Download SVG</button>
+                <button id="btn-download-png" class="button is-warning">Download PNG</button>
+                <button id="btn-permalink" class="button is-light">Copy permalink</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Preview -->
+        <div class="column is-6">
+          <div class="box">
+            <h2 class="title is-5">Preview</h2>
+            <div id="preview-wrap" class="preview-wrap">
+              <div id="preview" class="mermaid"></div>
+            </div>
+
+            <!-- Error helper -->
+            <article id="error" class="message is-danger is-hidden mt-3">
+              <div class="message-header">
+                <p>Mermaid error</p>
+                <button id="error-close" class="delete" aria-label="close"></button>
+              </div>
+              <div class="message-body">
+                <div id="error-hint" class="mb-2"></div>
+                <button id="toggle-raw-error" class="button is-small is-light">Show details ▸</button>
+                <pre id="raw-error" class="is-hidden mt-2"></pre>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+
+      <p class="has-text-grey is-size-7">
+        Tip: Use Ctrl/Cmd+Enter to render. Everything runs locally in your browser.
+      </p>
+    </div>
+  </section>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
