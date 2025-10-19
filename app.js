@@ -117,7 +117,17 @@ function injectDirection(src, dir) {
 function downloadSVG() {
   const svgEl = els.preview.querySelector('svg');
   if (!svgEl) return showToast('Nothing to download. Render first.', 'is-warning');
-  const svgText = svgEl.outerHTML;
+  
+  // Clone SVG and ensure xmlns attribute exists for proper XML rendering
+  const svgClone = svgEl.cloneNode(true);
+  if (!svgClone.hasAttribute('xmlns')) {
+    svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  }
+  
+  // Use XMLSerializer to get proper XML formatting (not HTML entities)
+  const serializer = new XMLSerializer();
+  const svgText = serializer.serializeToString(svgClone);
+  
   const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   triggerDownload(url, `${safeFilename()}.svg`);
@@ -147,7 +157,15 @@ async function downloadPNG() {
     const bg = (els.bg.value || '').toLowerCase();
     const pad = parseInt(els.padding.value || '16', 10);
 
-    const svgText = addPaddingToSVG(svgEl.outerHTML, pad, bg);
+    // Clone SVG and ensure xmlns attribute for proper rendering
+    const svgClone = svgEl.cloneNode(true);
+    if (!svgClone.hasAttribute('xmlns')) {
+      svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    }
+
+    // Use XMLSerializer to avoid HTML entity encoding issues
+    const serializer = new XMLSerializer();
+    const svgText = addPaddingToSVG(serializer.serializeToString(svgClone), pad, bg);
 
     // Compute size
     const { width, height } = getSvgSize(svgText, svgEl);
@@ -177,10 +195,14 @@ async function downloadPNG() {
 function addPaddingToSVG(svgText, padding, bg) {
   if (!padding || padding <= 0) return svgText;
   try {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = svgText;
-    const svg = tmp.querySelector('svg');
-    if (!svg) return svgText;
+    // Use DOMParser to properly parse XML/SVG
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgText, 'image/svg+xml');
+    const svg = doc.documentElement;
+    
+    // Check for parsing errors
+    const parserError = svg.querySelector('parsererror');
+    if (parserError || svg.tagName !== 'svg') return svgText;
 
     const vb = svg.getAttribute('viewBox');
     if (vb) {
@@ -204,7 +226,10 @@ function addPaddingToSVG(svgText, padding, bg) {
       rect.setAttribute('fill', bg);
       svg.insertBefore(rect, svg.firstChild);
     }
-    return svg.outerHTML;
+    
+    // Serialize back to string
+    const serializer = new XMLSerializer();
+    return serializer.serializeToString(svg);
   } catch {
     return svgText;
   }
@@ -353,7 +378,17 @@ async function drawSvgToCanvasCanvg(svgText, canvas, ctx, bg) {
 async function copySVG() {
   const svgEl = els.preview.querySelector('svg');
   if (!svgEl) return showToast('Nothing to copy. Render first.', 'is-warning');
-  const svgText = svgEl.outerHTML;
+  
+  // Clone SVG and ensure xmlns attribute exists
+  const svgClone = svgEl.cloneNode(true);
+  if (!svgClone.hasAttribute('xmlns')) {
+    svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  }
+  
+  // Use XMLSerializer to get proper XML formatting
+  const serializer = new XMLSerializer();
+  const svgText = serializer.serializeToString(svgClone);
+  
   try {
     await navigator.clipboard.writeText(svgText);
     showToast('SVG copied to clipboard.', 'is-info');

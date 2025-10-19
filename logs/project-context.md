@@ -568,6 +568,9 @@ Body: raw diagram code
 **Export Enhancement**:
 - Hybrid PNG export: native for Mermaid, Kroki API for others
 - Kroki PNG endpoint integration (direct binary download)
+- Fixed XML parsing errors by using XMLSerializer instead of .outerHTML
+- Added xmlns attribute enforcement for proper SVG rendering
+- Fixed blank PNG exports by using DOMParser in addPaddingToSVG
 - Maintained native SVG→Canvas quality for Mermaid diagrams
 
 ---
