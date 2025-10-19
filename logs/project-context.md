@@ -6,25 +6,31 @@
 
 ## Project Overview
 
-**Name**: Mermaid → Image Converter  
+**Name**: Multi-Engine Diagram Converter (formerly Mermaid → Image Converter)  
 **Type**: Single-page web application (vanilla JavaScript)  
-**Purpose**: Convert Mermaid diagram code to SVG and PNG images with export controls
+**Purpose**: Convert diagram code to SVG and PNG images with support for multiple diagram engines
 
 **Core Features**:
-- Live Mermaid diagram rendering with theme support
-- Template library with 9 curated diagram types
+- **Multi-engine support**: Mermaid (client-side), PlantUML, Graphviz, D2 (via Kroki API)
+- Live diagram rendering with engine selector and theme support
+- Template library with 19 curated diagram types across 4 engines
 - SVG and PNG export with quality controls (scale, padding, background)
+- Hybrid export: Native rendering for Mermaid, Kroki API for remote engines
 - Clipboard operations (copy SVG, copy permalink)
-- LocalStorage persistence (diagram text, settings, last template)
+- LocalStorage persistence (diagram text, settings, engine, last template)
 - Export presets (Poster mode, LMS mode, Quick share)
-- Friendly error hints for common Mermaid syntax issues
+- Friendly error hints for common syntax issues
+- Session caching for Kroki responses (performance optimization)
+- SVG sanitization for security (strips scripts and event handlers)
+- Configurable Kroki base URL (supports self-hosting)
 
 **Tech Stack**:
 - Vanilla JavaScript (ES6+, no frameworks)
-- Mermaid v10.9.4 (diagram rendering)
+- Mermaid v10.9.4 (client-side diagram rendering)
+- Kroki API (remote rendering for PlantUML, Graphviz, D2)
 - Canvg v3.0.1 (SVG-to-Canvas fallback for PNG export)
 - Bulma v0.9.4 (CSS framework for UI)
-- All processing happens client-side (no backend)
+- Hybrid architecture: Mermaid client-side, other engines via Kroki POST requests
 
 ---
 
@@ -88,31 +94,70 @@ External libraries loaded via CDN:
 
 ## Architecture & Data Flow
 
-**Rendering flow**:
-1. User enters Mermaid code in textarea (or selects template)
-2. `renderDiagram()` is called (button click or Ctrl/Cmd+Enter)
-3. Direction injection: if user selected TB/LR/etc., inject it into flowchart syntax
-4. `mermaid.initialize()` called with current theme and settings
-5. `mermaid.render('mermaid-svg-id', text)` generates SVG string
-6. SVG inserted into preview div
-7. On success: `saveState()` persists to localStorage
-8. On error: `showError(e)` displays friendly hint + raw error message
+**Multi-engine architecture**:
+```
+User Input → [Engine Selector] → Router
+                                    ↓
+                    ┌───────────────┴──────────────┐
+                    ↓                              ↓
+            Mermaid.render()              Kroki API (POST)
+            (client-side)                 (PlantUML/Graphviz/D2)
+                    ↓                              ↓
+                   SVG ←──────────────────────── SVG (sanitized)
+                    ↓
+          Session Cache (5min TTL)
+                    ↓
+                 Preview
+                    ↓
+          PNG Export (hybrid approach)
+```
 
-**Export flow (PNG)**:
+**Rendering flow (Mermaid)**:
+1. User enters Mermaid code in textarea (or selects template)
+2. `renderDiagram()` checks selected engine
+3. For Mermaid engine:
+   - Direction injection: if user selected TB/LR/etc., inject it into flowchart syntax
+   - `mermaid.initialize()` called with current theme and settings
+   - `mermaid.render('mermaid-svg-id', text)` generates SVG string
+   - SVG inserted into preview div
+4. On success: `saveState()` persists to localStorage
+5. On error: `showError(e)` displays friendly hint + raw error message
+
+**Rendering flow (Kroki engines)**:
+1. User selects PlantUML/Graphviz/D2 engine and enters code
+2. `renderDiagram()` routes to `renderKroki(engineId, code)`
+3. Check session cache: if diagram cached (by engine + code hash), use cached SVG
+4. Check Kroki availability: one-time health check per session
+5. POST diagram code to `${krokiBase}/${engineType}/svg` (20s timeout)
+6. Sanitize response SVG: strip `<script>` tags and `on*` event attributes
+7. Insert sanitized SVG into preview
+8. Cache result in sessionStorage with 5min TTL
+9. On error: display Kroki-specific error message with HTTP status
+
+**Export flow (PNG - Mermaid)**:
 1. User clicks "Download PNG"
-2. `downloadPNG()` retrieves rendered SVG from preview
-3. Apply padding and background via `addPaddingToSVG()` (modifies viewBox or adds background rect)
-4. Compute target dimensions with scale factor
-5. **Native rendering** (preferred):
+2. `downloadPNG()` checks selected engine
+3. For Mermaid: retrieve rendered SVG from preview
+4. Apply padding and background via `addPaddingToSVG()` (modifies viewBox or adds background rect)
+5. Compute target dimensions with scale factor
+6. **Native rendering** (preferred):
    - Convert SVG to Blob URL
    - Load into `Image` element
    - Draw to canvas with `ctx.drawImage()`
    - Benefits: crisp text, better font rendering
-6. **Canvg fallback** (if native fails):
+7. **Canvg fallback** (if native fails):
    - Use Canvg to parse and render SVG to canvas
    - Handles edge cases but can have text quality issues
-7. Convert canvas to PNG via `canvas.toDataURL('image/png')`
-8. Trigger download with temporary `<a>` element
+8. Convert canvas to PNG via `canvas.toDataURL('image/png')`
+9. Trigger download with temporary `<a>` element
+
+**Export flow (PNG - Kroki engines)**:
+1. User clicks "Download PNG" with PlantUML/Graphviz/D2 selected
+2. `downloadPNG()` routes to `downloadPngFromKroki(engineId, code, filename)`
+3. POST diagram code to `${krokiBase}/${engineType}/png` (30s timeout)
+4. Receive binary PNG blob from Kroki
+5. Create download link and trigger via temporary `<a>` element
+6. Benefits: Server-side rendering with consistent quality, no canvas conversion needed
 
 **State persistence**:
 - Uses `localStorage` with namespaced keys (prefix `mmd.`)
@@ -126,31 +171,60 @@ External libraries loaded via CDN:
 **localStorage keys** (defined in `LS_KEYS` object):
 ```javascript
 const LS_KEYS = {
-  diagramText: 'mmd.diagramText',      // Textarea content
-  theme: 'mmd.theme',                  // Selected Mermaid theme
-  direction: 'mmd.direction',          // Flowchart direction override
-  export: 'mmd.export',                // JSON: {scale, bg, padding, filename}
-  lastTemplateKey: 'mmd.lastTemplateKey'  // Last selected template
+  diagramText: 'mmd.diagramText',               // Textarea content
+  theme: 'mmd.theme',                           // Selected Mermaid theme
+  direction: 'mmd.direction',                   // Flowchart direction override
+  export: 'mmd.export',                         // JSON: {scale, bg, padding, filename}
+  lastTemplateKey: 'mmd.lastTemplateKey',       // Last selected template
+  diagramEngine: 'mmd.diagramEngine',           // Selected engine (mermaid/plantuml/graphviz/d2)
+  krokiBase: 'mmd.krokiBase',                   // Custom Kroki base URL (optional)
+  suppressEngineWarning: 'mmd.suppressEngineWarning'  // '1' = hide engine switch toast
 };
 ```
 - Prefix `mmd.` prevents collisions with other apps on same origin
 - Export settings stored as JSON string
+- Engine defaults to 'mermaid' if not set
+
+**sessionStorage keys** (runtime cache):
+```javascript
+// Kroki SVG cache: `kroki:${engineId}:${hash(code)}`
+// Structure: { svg: string, timestamp: number }
+// TTL: 5 minutes
+
+// Kroki availability: 'kroki:available'
+// Values: 'true' or 'false'
+// Cached per session to avoid repeated health checks
+```
+
+**Engine configuration** (in `data.js`):
+```javascript
+const DIAGRAM_ENGINES = [
+  { id: 'mermaid', label: 'Mermaid ⚡', clientSide: true },
+  { id: 'plantuml', label: 'PlantUML 🌐', clientSide: false, krokiType: 'plantuml' },
+  { id: 'graphviz', label: 'Graphviz 🌐', clientSide: false, krokiType: 'graphviz' },
+  { id: 'd2', label: 'D2 🌐', clientSide: false, krokiType: 'd2' }
+];
+```
+- Icons: ⚡ = client-side rendering, 🌐 = remote Kroki rendering
+- `krokiType` maps to Kroki API endpoint path
 
 **Template structure** (in `data.js`):
 ```javascript
 const TEMPLATES = [
   { 
-    key: 'flowchart_td',              // Unique identifier
-    label: 'Flowchart (Top-Down)',    // Display name in dropdown
-    category: 'Core',                 // Groups templates in dropdown
-    code: `flowchart TD ...`          // Mermaid diagram code (template literal)
+    key: 'flowchart_td',                    // Unique identifier
+    label: 'Flowchart (Top-Down)',          // Display name in dropdown
+    category: 'Process & Flow',             // Groups templates in dropdown
+    engine: 'mermaid',                      // Which engine renders this template
+    code: `flowchart TD ...`                // Diagram code (template literal)
   },
-  // ... more templates
+  // ... 18 more templates
 ];
 ```
-- Categories: "Core", "Software & Systems", "Planning"
-- Dropdown builder groups by category with dividers
-- Clicking a template populates textarea and auto-renders
+- **19 templates total**: 9 Mermaid, 4 PlantUML, 3 Graphviz, 3 D2
+- Categories: "Process & Flow", "Software Architecture", "Data & Relationships", "Planning & Timeline", "Networks & Graphs"
+- Dropdown builder filters by selected engine and groups by category
+- Clicking a template populates textarea and auto-renders with appropriate engine
 
 **Element references** (defined in `els` object):
 All DOM elements cached at initialization for performance:
@@ -158,8 +232,12 @@ All DOM elements cached at initialization for performance:
 const els = {
   input: document.getElementById('mmd-input'),
   preview: document.getElementById('preview'),
+  diagramType: document.getElementById('diagram-type'),        // Engine selector
+  engineBadge: document.getElementById('engine-badge'),        // Preview badge
+  krokiBase: document.getElementById('kroki-base'),            // Kroki URL input
+  suppressEngineWarning: document.getElementById('suppress-engine-warning'),  // Checkbox
   btnDownloadPng: document.getElementById('btn-download-png'),
-  // ... ~28 total elements
+  // ... ~32 total elements
 };
 ```
 
@@ -211,6 +289,80 @@ function addPaddingToSVG(svgText, padding, bg) {
 
 ---
 
+## Kroki Integration
+
+**What is Kroki**:
+- Unified diagram API supporting 20+ diagram engines (PlantUML, Graphviz, D2, Mermaid, etc.)
+- Public instance: `https://kroki.io`
+- Self-hosting supported (Docker image available)
+- CORS-enabled for browser POST requests
+
+**API Endpoints Used**:
+```
+POST ${krokiBase}/${engineType}/svg
+POST ${krokiBase}/${engineType}/png
+Content-Type: text/plain
+Body: raw diagram code
+```
+
+**Timeout Settings**:
+- SVG rendering: 20 seconds
+- PNG export: 30 seconds
+- Health check: 5 seconds
+
+**Security Measures**:
+
+1. **SVG Sanitization** (`sanitizeSvg()` function):
+   - Strips all `<script>` tags from Kroki responses
+   - Removes event handler attributes (`onclick`, `onload`, etc.)
+   - Uses DOMParser + XMLSerializer for safe DOM manipulation
+   - Fallback: regex-based script tag removal if parsing fails
+   - Applied before inserting SVG into preview
+
+2. **Fetch Timeout** (`fetchWithTimeout()` helper):
+   - Uses AbortController to enforce timeouts
+   - Prevents hanging on slow/unresponsive Kroki instances
+   - Cleans up timers and signals properly
+
+3. **Error Handling**:
+   - HTTP errors displayed with status code
+   - Network failures caught and shown as "service unavailable"
+   - User-friendly messages ("Kroki render error") + raw error details
+
+**Performance Optimizations**:
+
+1. **Session Caching**:
+   - Kroki SVG responses cached in sessionStorage
+   - Cache key: `kroki:${engineId}:${simpleHash(code)}`
+   - TTL: 5 minutes (auto-expires)
+   - Avoids redundant API calls when user re-renders same diagram
+   - Cache cleared on page refresh (session-scoped)
+
+2. **Availability Check**:
+   - One-time health check per session: POST minimal PlantUML diagram
+   - Result cached in sessionStorage as `kroki:available`
+   - Prevents repeated health checks
+   - Fast-fail if Kroki is down (shows error immediately)
+
+3. **Hash Function** (`simpleHash()`):
+   - Simple 32-bit hash for cache keys
+   - Fast (~1ms for typical diagram sizes)
+   - Collisions unlikely for session-scoped cache
+
+**Configurable Kroki Base**:
+- Users can override Kroki URL in Advanced settings
+- Useful for self-hosted instances or regional mirrors
+- Stored in `localStorage` as `mmd.krokiBase`
+- Default: `https://kroki.io`
+
+**Self-Hosting Kroki**:
+- Docker: `docker run -p 8000:8000 yuzutech/kroki`
+- Set custom base URL to `http://localhost:8000` (or your host)
+- Ensure CORS headers enabled for browser requests
+- See logs/plan-expansion.md for detailed setup
+
+---
+
 ## Known Issues & Workarounds
 
 **1. Mindmap diagrams cause page hang**
@@ -241,34 +393,62 @@ function addPaddingToSVG(svgText, padding, bg) {
 - **Limitation**: Direction injection (`injectDirection()`) only works for flowchart/graph types
 - **Expected**: Sequence diagrams, ER diagrams, etc. ignore direction setting
 - **Not a bug**: This is by design; direction is flowchart-specific
+- **Update (Oct 2025)**: Direction selector now automatically disables when non-Mermaid engines selected
+
+**6. Kroki API availability**
+- **Dependency**: PlantUML, Graphviz, D2 require internet connection to Kroki
+- **Risk**: Public kroki.io could have downtime or rate limits
+- **Mitigation**: 
+  - Availability check cached per session (fast-fail if down)
+  - Clear error messages shown to user
+  - Self-hosting option available for production use
+- **Offline**: Mermaid diagrams work offline; Kroki engines require network
+
+**7. Kroki response time**
+- **Latency**: Remote rendering adds 200-1000ms vs client-side Mermaid
+- **Mitigation**: 
+  - Session caching reduces repeated calls (5min TTL)
+  - "Rendering..." toast provides immediate feedback
+  - Timeout after 20s with clear error message
+- **Large diagrams**: Complex diagrams may take 2-5 seconds to render
 
 ---
 
 ## Template System
 
 **How templates work**:
-1. `data.js` exports `TEMPLATES` array to global scope
-2. `app.js` reads `TEMPLATES` on initialization
-3. `buildTemplateDropdown()` groups by category and creates dropdown items
+1. `data.js` exports `DIAGRAM_ENGINES` and `TEMPLATES` arrays to global scope
+2. `app.js` reads both on initialization
+3. `buildTemplateDropdown()` filters templates by selected engine and groups by category
 4. Each template click: sets textarea value, saves to localStorage, calls `renderDiagram()`
+5. Rendering routes to appropriate engine (Mermaid client-side or Kroki API)
 
 **Adding a new template**:
 1. Edit `data.js`
 2. Add object to `TEMPLATES` array:
    ```javascript
    { 
-     key: 'unique_key',           // Use snake_case
-     label: 'Display Name',       // Shown in dropdown
-     category: 'Core',            // 'Core', 'Software & Systems', or 'Planning'
-     code: `diagram type\n  ...`  // Mermaid code
+     key: 'unique_key',                // Use snake_case
+     label: 'Display Name',            // Shown in dropdown
+     category: 'Process & Flow',       // See categories below
+     engine: 'mermaid',                // 'mermaid', 'plantuml', 'graphviz', or 'd2'
+     code: `diagram type\n  ...`       // Diagram code for specified engine
    }
    ```
-3. Refresh page; new template appears in dropdown under its category
+3. Refresh page; new template appears in dropdown when appropriate engine selected
 
-**Template categories** (current):
-- **Core**: Basic diagram types (flowchart, sequence, class, state)
-- **Software & Systems**: Git graph, ER diagram
-- **Planning**: Gantt, timeline
+**Template categories** (current, use-case based):
+- **Process & Flow**: Flowcharts, sequence, activity, use case (6 templates)
+- **Software Architecture**: Components, deployment, layers (5 templates)
+- **Data & Relationships**: ER, class, tree (3 templates)
+- **Planning & Timeline**: Gantt, timeline (2 templates)
+- **Networks & Graphs**: Git graph, dependencies, topology (4 templates)
+
+**Template distribution** (19 total):
+- **Mermaid (9)**: flowchart TD/LR, sequence, class, state, ER, git graph, user journey, quadrant, timeline
+- **PlantUML (4)**: component, use case, activity, deployment
+- **Graphviz (3)**: directed graph, hierarchical tree, network topology
+- **D2 (3)**: simple architecture, layered system, grid layout
 
 **Removed templates** (and why):
 - **Kanban**: Not a supported Mermaid type
@@ -331,29 +511,68 @@ function addPaddingToSVG(svgText, padding, bg) {
 ## Quick Reference
 
 **Important functions** (all in `app.js`):
-- `renderDiagram()` - Main render entry point
-- `downloadSVG()` - SVG export
-- `downloadPNG()` - PNG export with native/Canvg logic
-- `saveState()` / `restoreState()` - localStorage persistence
-- `buildTemplateDropdown()` - Populates template menu
+- `renderDiagram()` - Main render entry point, routes by engine
+- `renderKroki()` - Kroki API rendering (PlantUML/Graphviz/D2)
+- `downloadSVG()` - SVG export (works for all engines)
+- `downloadPNG()` - PNG export router (native for Mermaid, Kroki for others)
+- `downloadPngFromKroki()` - Kroki PNG endpoint handler
+- `saveState()` / `restoreState()` - localStorage persistence (includes engine)
+- `buildTemplateDropdown()` - Populates template menu (filtered by engine)
+- `updateEngineBadge()` - Updates preview badge with current engine
+- `sanitizeSvg()` - Strips scripts and event handlers from Kroki responses
+- `getCachedKrokiSvg()` / `setCachedKrokiSvg()` - Session cache helpers
+- `checkKrokiAvailability()` - One-time health check per session
+- `fetchWithTimeout()` - Fetch with AbortController timeout
 - `makeFriendlyHint()` - Error message translation
 
 **Initialization order**:
-1. `restoreState()` - Load saved settings and diagram
+1. `restoreState()` - Load saved settings, diagram, and engine selection
 2. `initMermaid()` - Configure Mermaid with theme
-3. `bindEvents()` - Attach click handlers, keyboard shortcuts
-4. `buildTemplateDropdown()` - Create template menu
-5. `loadFromHash()` - If permalink in URL, load and render
+3. `bindEvents()` - Attach click handlers, keyboard shortcuts, engine change handler
+4. `buildTemplateDropdown()` - Create template menu (filtered by engine)
+5. `updateEngineBadge()` - Show current engine in preview badge
+6. `loadFromHash()` - If permalink in URL, load and render (engine included in config)
 
 **Event listeners**:
 - Render: button click, Ctrl/Cmd+Enter
-- Theme/direction change: auto-render on dropdown change
-- Export buttons: click to download
+- Engine change: rebuild template dropdown, update badge, show warning toast (unless suppressed), disable direction for non-Mermaid
+- Theme/direction change: auto-render on dropdown change (direction disabled for non-Mermaid engines)
+- Export buttons: click to download (routed by engine)
 - Advanced panel: toggle visibility
 - Presets: apply settings but don't auto-download
+- Settings changes: auto-save to localStorage
+
+---
+
+## Recent Changes (October 2025)
+
+**Multi-Engine Expansion**:
+- Added support for PlantUML, Graphviz, D2 via Kroki API
+- Implemented engine selector UI with badge showing active engine
+- Added 10 new templates (4 PlantUML, 3 Graphviz, 3 D2)
+- Reorganized template categories to use-case based system
+- Direction selector auto-disables for non-Mermaid engines
+
+**Performance & Security**:
+- Implemented session caching for Kroki responses (5min TTL)
+- Added SVG sanitization (strips scripts and event handlers)
+- Kroki availability pre-flight check (cached per session)
+- Fetch timeout enforcement (20s SVG, 30s PNG)
+
+**Configuration**:
+- User-configurable Kroki base URL (supports self-hosting)
+- "Don't show engine switch warning" checkbox
+- Engine selection persisted in localStorage
+- Permalinks now include engine in config
+
+**Export Enhancement**:
+- Hybrid PNG export: native for Mermaid, Kroki API for others
+- Kroki PNG endpoint integration (direct binary download)
+- Maintained native SVG→Canvas quality for Mermaid diagrams
 
 ---
 
 **Last Updated**: October 19, 2025  
 **Mermaid Version**: 10.9.4 (pinned)  
-**Status**: Stable, production-ready for core diagram types
+**Kroki Integration**: Active (public instance + self-hosting support)  
+**Status**: Production-ready with multi-engine support

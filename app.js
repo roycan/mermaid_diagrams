@@ -10,6 +10,10 @@ const els = {
   toast: document.getElementById('toast'),
   theme: document.getElementById('theme'),
   direction: document.getElementById('direction'),
+  diagramType: document.getElementById('diagram-type'),
+  engineBadge: document.getElementById('engine-badge'),
+  krokiBase: document.getElementById('kroki-base'),
+  suppressEngineWarning: document.getElementById('suppress-engine-warning'),
   scale: document.getElementById('scale'),
   bg: document.getElementById('bg'),
   padding: document.getElementById('padding'),
@@ -36,6 +40,9 @@ const LS_KEYS = {
   direction: 'mmd.direction',
   export: 'mmd.export',
   lastTemplateKey: 'mmd.lastTemplateKey',
+  diagramEngine: 'mmd.diagramEngine',
+  krokiBase: 'mmd.krokiBase',
+  suppressEngineWarning: 'mmd.suppressEngineWarning',
 };
 
 
@@ -59,6 +66,21 @@ function initMermaid() {
 // Render diagram
 async function renderDiagram() {
   hideError();
+  // If selected engine is not Mermaid (client-side), inform user until Kroki integration is wired
+  const selectedEngine = els.diagramType?.value || 'mermaid';
+  if (selectedEngine !== 'mermaid') {
+    // For non-mermaid engines, route to Kroki renderer
+    try {
+      await renderKroki(selectedEngine, els.input.value);
+      saveState();
+      showToast('Rendered via Kroki.', 'is-success');
+    } catch (err) {
+      showError(err);
+      showToast('Remote rendering failed. See details.', 'is-danger');
+    }
+    return;
+  }
+
   showToast('Rendering...', 'is-link');
 
   const raw = els.input.value.trim();
@@ -103,6 +125,21 @@ function downloadSVG() {
 
 async function downloadPNG() {
   try {
+    const selectedEngine = els.diagramType?.value || 'mermaid';
+    const filename = safeFilename();
+
+    if (selectedEngine !== 'mermaid') {
+      // Ask Kroki for PNG directly
+      try {
+        await downloadPngFromKroki(selectedEngine, els.input.value, filename);
+        showToast('PNG downloaded from Kroki.', 'is-success');
+      } catch (err) {
+        console.error(err);
+        showToast('Kroki PNG export failed.', 'is-danger');
+      }
+      return;
+    }
+
     const svgEl = els.preview.querySelector('svg');
     if (!svgEl) return showToast('Nothing to download. Render first.', 'is-warning');
 
@@ -200,6 +237,71 @@ function getSvgSize(svgText, fallbackEl) {
   }
 }
 
+// Fetch with timeout helper
+async function fetchWithTimeout(url, opts = {}, timeout = 20000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const res = await fetch(url, { ...opts, signal: controller.signal });
+    clearTimeout(id);
+    return res;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
+
+// Render via Kroki API
+async function renderKroki(engineId, code) {
+  const engineCfg = DIAGRAM_ENGINES.find(e => e.id === engineId);
+  if (!engineCfg || !engineCfg.krokiType) throw new Error('Unsupported engine for Kroki');
+  
+  // Check session cache first
+  const cached = getCachedKrokiSvg(engineId, code);
+  if (cached) {
+    els.preview.innerHTML = cached;
+    els.preview.setAttribute('data-engine', engineId);
+    return;
+  }
+  
+  // Check Kroki availability (cached per session)
+  const available = await checkKrokiAvailability();
+  if (!available) throw new Error('Kroki service unavailable. Check your Kroki base URL or network.');
+  
+  const base = (els.krokiBase && els.krokiBase.value) ? els.krokiBase.value.replace(/\/+$/, '') : 'https://kroki.io';
+  const url = `${base}/${engineCfg.krokiType}/svg`;
+  const res = await fetchWithTimeout(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: code }, 20000);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    const e = new Error(`Kroki render error (${res.status}): ${txt}`);
+    throw e;
+  }
+  const svg = await res.text();
+  const sanitized = sanitizeSvg(svg);
+  els.preview.innerHTML = sanitized;
+  els.preview.setAttribute('data-engine', engineId);
+  
+  // Cache the result
+  setCachedKrokiSvg(engineId, code, sanitized);
+}
+
+// Download PNG from Kroki
+async function downloadPngFromKroki(engineId, code, filename = 'diagram') {
+  const engineCfg = DIAGRAM_ENGINES.find(e => e.id === engineId);
+  if (!engineCfg || !engineCfg.krokiType) throw new Error('Unsupported engine for Kroki PNG');
+  const base = (els.krokiBase && els.krokiBase.value) ? els.krokiBase.value.replace(/\/+$/, '') : 'https://kroki.io';
+  const url = `${base}/${engineCfg.krokiType}/png`;
+  const res = await fetchWithTimeout(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: code }, 30000);
+  if (!res.ok) throw new Error(`Kroki PNG failed: ${res.status}`);
+  const blob = await res.blob();
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${filename}.png`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 async function drawSvgToCanvasNative(svgText, canvas) {
   return new Promise((resolve, reject) => {
     const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
@@ -289,6 +391,7 @@ function loadFromHash() {
 // Config & state
 function currentConfig() {
   return {
+    engine: els.diagramType?.value || 'mermaid',
     theme: els.theme.value,
     direction: els.direction.value,
     export: {
@@ -302,6 +405,7 @@ function currentConfig() {
 
 function applyConfig(cfg) {
   if (!cfg) return;
+  if (cfg.engine && els.diagramType) els.diagramType.value = cfg.engine;
   if (cfg.theme) els.theme.value = cfg.theme;
   if (cfg.direction) els.direction.value = cfg.direction;
   if (cfg.export) {
@@ -316,6 +420,9 @@ function saveState() {
   localStorage.setItem(LS_KEYS.diagramText, els.input.value);
   localStorage.setItem(LS_KEYS.theme, els.theme.value);
   localStorage.setItem(LS_KEYS.direction, els.direction.value);
+  if (els.diagramType) localStorage.setItem(LS_KEYS.diagramEngine, els.diagramType.value);
+  if (els.krokiBase) localStorage.setItem(LS_KEYS.krokiBase, els.krokiBase.value);
+  if (els.suppressEngineWarning) localStorage.setItem(LS_KEYS.suppressEngineWarning, els.suppressEngineWarning.checked ? '1' : '0');
   localStorage.setItem(LS_KEYS.export, JSON.stringify({
     scale: els.scale.value,
     bg: els.bg.value,
@@ -336,6 +443,16 @@ function restoreState() {
 
   const lastTemplate = localStorage.getItem(LS_KEYS.lastTemplateKey);
   if (lastTemplate) els.templateDropdown.setAttribute('data-last-template', lastTemplate);
+
+  // restore engine selection (default to mermaid)
+  const engine = localStorage.getItem(LS_KEYS.diagramEngine) || 'mermaid';
+  if (els.diagramType) els.diagramType.value = engine;
+  // restore kroki base
+  const krokiBase = localStorage.getItem(LS_KEYS.krokiBase) || '';
+  if (els.krokiBase && krokiBase) els.krokiBase.value = krokiBase;
+  // restore suppress setting
+  const suppress = localStorage.getItem(LS_KEYS.suppressEngineWarning) === '1';
+  if (els.suppressEngineWarning) els.suppressEngineWarning.checked = suppress;
 }
 
 function resetDefaults() {
@@ -406,15 +523,25 @@ function makeFriendlyHint(raw) {
 
 // Template dropdown UI
 function buildTemplateDropdown() {
-  const categories = [...new Set(TEMPLATES.map(t => t.category))];
+  const currentEngine = els.diagramType?.value || 'mermaid';
+  const templatesForEngine = TEMPLATES.filter(t => t.engine === currentEngine);
+  const categories = [...new Set(templatesForEngine.map(t => t.category))];
   els.templateList.innerHTML = '';
+  if (templatesForEngine.length === 0) {
+    const noItem = document.createElement('div');
+    noItem.className = 'dropdown-item';
+    noItem.textContent = `No templates for ${currentEngine}. Try another engine or create your own.`;
+    els.templateList.appendChild(noItem);
+    return;
+  }
+
   categories.forEach((cat, i) => {
     const catItem = document.createElement('div');
     catItem.className = 'dropdown-item is-category';
     catItem.textContent = cat;
     els.templateList.appendChild(catItem);
 
-    TEMPLATES.filter(t => t.category === cat).forEach(t => {
+    templatesForEngine.filter(t => t.category === cat).forEach(t => {
       const item = document.createElement('a');
       item.className = 'dropdown-item';
       item.href = '#';
@@ -508,6 +635,24 @@ function bindEvents() {
   els.presetLms.addEventListener('click', applyPresetLms);
   els.presetQuickShare.addEventListener('click', applyPresetQuickShare);
 
+  // Engine selector change
+  if (els.diagramType) {
+    els.diagramType.addEventListener('change', () => {
+      const eng = els.diagramType.value;
+      buildTemplateDropdown();
+      updateEngineBadge();
+      // Option B behavior: keep editor text, warn about syntax differences (unless suppressed)
+      const suppressed = els.suppressEngineWarning && els.suppressEngineWarning.checked;
+      if (!suppressed) showToast(`${eng} selected — keeping editor text. Syntax may differ between engines.`, 'is-warning');
+      // Disable direction selector for non-mermaid engines
+      if (els.direction) els.direction.disabled = (eng !== 'mermaid');
+      saveState();
+    });
+    // ensure initial direction availability
+    const initEng = els.diagramType.value || 'mermaid';
+    if (els.direction) els.direction.disabled = (initEng !== 'mermaid');
+  }
+
   // Keyboard shortcut
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -523,5 +668,103 @@ function bindEvents() {
   initMermaid();
   bindEvents();
   buildTemplateDropdown();
+  updateEngineBadge();
   loadFromHash();
 })();
+
+// Engine badge updater
+function updateEngineBadge() {
+  if (!els.engineBadge || !els.diagramType) return;
+  const id = els.diagramType.value || 'mermaid';
+  const cfg = DIAGRAM_ENGINES?.find(e => e.id === id);
+  els.engineBadge.textContent = cfg?.label || id;
+  els.preview.setAttribute('data-engine', id);
+}
+
+// SVG sanitization (strip scripts and event handlers)
+function sanitizeSvg(svgText) {
+  if (!svgText) return '';
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgText, 'image/svg+xml');
+    const svg = doc.documentElement;
+    
+    // Remove script tags
+    const scripts = svg.querySelectorAll('script');
+    scripts.forEach(s => s.remove());
+    
+    // Remove event handler attributes
+    const allEls = svg.querySelectorAll('*');
+    allEls.forEach(el => {
+      const attrs = Array.from(el.attributes);
+      attrs.forEach(attr => {
+        if (attr.name.startsWith('on')) el.removeAttribute(attr.name);
+      });
+    });
+    
+    return new XMLSerializer().serializeToString(svg);
+  } catch {
+    // If parsing fails, strip <script> tags manually as fallback
+    return svgText.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  }
+}
+
+// Kroki session cache helpers
+function getCachedKrokiSvg(engineId, code) {
+  try {
+    const key = `kroki:${engineId}:${simpleHash(code)}`;
+    const cached = sessionStorage.getItem(key);
+    if (!cached) return null;
+    const data = JSON.parse(cached);
+    const now = Date.now();
+    // 5 min TTL
+    if (now - data.timestamp > 5 * 60 * 1000) {
+      sessionStorage.removeItem(key);
+      return null;
+    }
+    return data.svg;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedKrokiSvg(engineId, code, svg) {
+  try {
+    const key = `kroki:${engineId}:${simpleHash(code)}`;
+    const data = { svg, timestamp: Date.now() };
+    sessionStorage.setItem(key, JSON.stringify(data));
+  } catch {
+    // quota exceeded or unavailable, ignore
+  }
+}
+
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // convert to 32bit integer
+  }
+  return hash.toString(36);
+}
+
+// Kroki availability check (cached per session)
+async function checkKrokiAvailability() {
+  const cacheKey = 'kroki:available';
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) return cached === 'true';
+  
+  try {
+    const base = (els.krokiBase && els.krokiBase.value) ? els.krokiBase.value.replace(/\/+$/, '') : 'https://kroki.io';
+    // Try a minimal plantuml diagram as health check
+    const testCode = '@startuml\nA -> B\n@enduml';
+    const url = `${base}/plantuml/svg`;
+    const res = await fetchWithTimeout(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: testCode }, 5000);
+    const available = res.ok;
+    sessionStorage.setItem(cacheKey, available ? 'true' : 'false');
+    return available;
+  } catch {
+    sessionStorage.setItem(cacheKey, 'false');
+    return false;
+  }
+}

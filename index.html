@@ -46,6 +46,16 @@
                 </div>
               </div>
               <div class="control">
+                <div class="select">
+                  <select id="diagram-type" title="Diagram engine">
+                    <option value="mermaid">Mermaid ⚡</option>
+                    <option value="plantuml">PlantUML 🌐</option>
+                    <option value="graphviz">Graphviz 🌐</option>
+                    <option value="d2">D2 🌐</option>
+                  </select>
+                </div>
+              </div>
+              <div class="control">
                 <button id="btn-render" class="button is-link">Render (Ctrl/Cmd+Enter)</button>
               </div>
               <div class="control">
@@ -156,6 +166,28 @@
                   </div>
                 </div>
 
+                <div class="columns is-multiline mt-3">
+                  <div class="column is-8">
+                    <div class="field">
+                      <label class="label">Kroki base URL</label>
+                      <div class="control">
+                        <input id="kroki-base" class="input" type="text" placeholder="https://kroki.io">
+                      </div>
+                      <p class="help">Override the Kroki instance (useful for self-hosting)</p>
+                    </div>
+                  </div>
+
+                  <div class="column is-4">
+                    <div class="field">
+                      <label class="label">Engine switch warning</label>
+                      <div class="control">
+                        <label class="checkbox"><input id="suppress-engine-warning" type="checkbox"> Don't show engine switch warning</label>
+                      </div>
+                      <p class="help">When checked, switching engines won't show the syntax warning.</p>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="field">
                   <button id="btn-reset" class="button is-small is-danger is-light">Reset to defaults</button>
                 </div>
@@ -177,6 +209,9 @@
           <div class="box">
             <h2 class="title is-5">Preview</h2>
             <div id="preview-wrap" class="preview-wrap">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+                <div id="engine-badge" class="tag is-light is-small">Mermaid ⚡</div>
+              </div>
               <div id="preview" class="mermaid"></div>
             </div>
 
