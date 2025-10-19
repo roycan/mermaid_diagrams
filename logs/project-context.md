@@ -481,6 +481,12 @@ Body: raw diagram code
 - Large diagrams create very long URLs (some browsers/servers have URL length limits ~2000 chars)
 - No URL shortening implemented
 
+**SVG/PNG Export**:
+- Must use `XMLSerializer` instead of `.outerHTML` to avoid HTML entity encoding (`&gt;` instead of `>`)
+- Must clone SVG and ensure `xmlns="http://www.w3.org/2000/svg"` attribute for standalone rendering
+- `addPaddingToSVG()` must use `DOMParser` not `innerHTML` for proper XML parsing
+- Without these fixes: XML parsing errors in downloaded SVGs, blank PNG exports
+
 ---
 
 ## Future Considerations
