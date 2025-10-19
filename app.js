@@ -139,15 +139,16 @@ async function downloadPNG() {
     const filename = safeFilename();
 
     if (selectedEngine !== 'mermaid') {
-      // Ask Kroki for PNG directly
+      // For non-Mermaid engines, try Kroki PNG endpoint first
+      // If that fails (e.g., D2 doesn't support PNG), fall back to SVG->Canvas conversion
       try {
         await downloadPngFromKroki(selectedEngine, els.input.value, filename);
         showToast('PNG downloaded from Kroki.', 'is-success');
+        return;
       } catch (err) {
-        console.error(err);
-        showToast('Kroki PNG export failed.', 'is-danger');
+        console.warn('Kroki PNG endpoint failed, trying SVG->Canvas conversion:', err);
+        // Fall through to SVG->Canvas conversion below
       }
-      return;
     }
 
     const svgEl = els.preview.querySelector('svg');

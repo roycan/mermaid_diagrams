@@ -574,6 +574,7 @@ Body: raw diagram code
 **Export Enhancement**:
 - Hybrid PNG export: native for Mermaid, Kroki API for others
 - Kroki PNG endpoint integration (direct binary download)
+- **Automatic fallback**: If Kroki PNG fails (e.g., D2 doesn't support PNG endpoint), automatically converts SVG to PNG via Canvas
 - Fixed XML parsing errors by using XMLSerializer instead of .outerHTML
 - Added xmlns attribute enforcement for proper SVG rendering
 - Fixed blank PNG exports by using DOMParser in addPaddingToSVG
