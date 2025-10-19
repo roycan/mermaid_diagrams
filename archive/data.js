@@ -60,6 +60,15 @@ const TEMPLATES = [
     Task B :after a1, 2d
     section Phase 2
     Task C :2025-10-20, 4d` },
+  { key: 'kanban', label: 'Kanban board', category: 'Planning', code: `kanban
+    title Project Tasks
+    section To Do
+      Task 1
+      Task 2
+    section In Progress
+      Task 3
+    section Done
+      Task 4` },
   { key: 'timeline', label: 'Timeline', category: 'Planning', code: `timeline
     title Evolution of Web
     1990 : HTML invented
