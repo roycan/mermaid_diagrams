@@ -1,12 +1,21 @@
-// Diagram engine configuration
+// Diagram engine configuration (expanded)
 const DIAGRAM_ENGINES = [
   { id: 'mermaid', label: 'Mermaid ⚡', clientSide: true },
   { id: 'plantuml', label: 'PlantUML 🌐', clientSide: false, krokiType: 'plantuml' },
   { id: 'graphviz', label: 'Graphviz 🌐', clientSide: false, krokiType: 'graphviz' },
-  { id: 'd2', label: 'D2 🌐', clientSide: false, krokiType: 'd2' }
+  { id: 'd2', label: 'D2 🌐', clientSide: false, krokiType: 'd2' },
+  { id: 'svgbob', label: 'Svgbob 🌐', clientSide: false, krokiType: 'svgbob' },
+  { id: 'nomnoml', label: 'Nomnoml 🌐', clientSide: false, krokiType: 'nomnoml' },
+  { id: 'seqdiag', label: 'Seqdiag 🌐', clientSide: false, krokiType: 'seqdiag' },
+  { id: 'actdiag', label: 'Actdiag 🌐', clientSide: false, krokiType: 'actdiag' },
+  { id: 'nwdiag', label: 'Nwdiag 🌐', clientSide: false, krokiType: 'nwdiag' },
+  { id: 'rackdiag', label: 'Rackdiag 🌐', clientSide: false, krokiType: 'rackdiag' },
+  { id: 'erd', label: 'ERD (Kroki) 🌐', clientSide: false, krokiType: 'erd' },
+  { id: 'bytefield', label: 'Bytefield 🌐', clientSide: false, krokiType: 'bytefield' },
+  { id: 'packetdiag', label: 'Packetdiag 🌐', clientSide: false, krokiType: 'packetdiag' }
 ];
 
-// Template gallery (19 curated across 4 engines)
+// Template gallery (expanded: 29 curated across 13 engines)
 const TEMPLATES = [
   // Mermaid templates (9)
   { key: 'flowchart_td', label: 'Flowchart (Top-Down)', category: 'Process & Flow', engine: 'mermaid', code: `flowchart TD
@@ -50,7 +59,7 @@ const TEMPLATES = [
     commit id: "Hotfix"
     merge feature
     commit id: "Release"` },
-  { key: 'er', label: 'Entity-Relationship (ER) diagram', category: 'Data & Relationships', engine: 'mermaid', code: `erDiagram
+  { key: 'er', label: 'ER (Mermaid)', category: 'Data & Relationships', engine: 'mermaid', code: `erDiagram
     STUDENT ||--o{ ENROLLMENT : registers
     COURSE ||--o{ ENROLLMENT : includes
     STUDENT {
@@ -293,5 +302,127 @@ footer: Footer {
   grid-row: 3
   grid-column: 2-3
   style.fill: "#34495e"
+}` },
+
+  // Svgbob (ASCII sketch)
+  { key: 'svgbob_basic', label: 'ASCII Sketch', category: 'Process & Flow', engine: 'svgbob', code: `+------+    +---------+
++ Box +---->+ Target  +
++------+    +---------+
+    |           ^
+    v           |
+  /---\      /-----\
+  | A |      |  B  |
+  \---/      \-----/
+` },
+
+  // Nomnoml (conceptual class/ER style)
+  { key: 'nomnoml_basic', label: 'Conceptual Model', category: 'Data & Relationships', engine: 'nomnoml', code: `#direction: right
+[Student]-enrolls->[Course]
+[Student|+id; +name]
+[Course|+id; +title]
+` },
+
+  // Seqdiag (sequence)
+  { key: 'seqdiag_basic', label: 'Sequence (Alt)', category: 'Process & Flow', engine: 'seqdiag', code: `seqdiag {
+  Client -> Server [label = "Request"];
+  Server -> DB [label = "Query"];
+  DB -> Server [label = "Rows"];
+  Server -> Client [label = "Response"];
+}` },
+
+  // Actdiag (activity)
+  { key: 'actdiag_basic', label: 'Activity (Alt)', category: 'Process & Flow', engine: 'actdiag', code: `actdiag {
+  write -> compile -> test -> deploy
+  compile -> error -> write
+  test -> error -> write
+}` },
+
+  // Nwdiag basic (LAN segments)
+  { key: 'nwdiag_basic', label: 'Network Segments', category: 'Networks & Graphs', engine: 'nwdiag', code: `nwdiag {
+  network core {
+    address = "10.0.0.0/24";
+    router;
+    firewall;
+  }
+  network access_a {
+    address = "10.0.10.0/24";
+    firewall;
+    switch_a;
+    pc_a;
+  }
+  network access_b {
+    address = "10.0.20.0/24";
+    firewall;
+    switch_b;
+    pc_b;
+  }
+}` },
+
+  // Nwdiag WAN design (second template)
+  { key: 'nwdiag_wan', label: 'WAN Design', category: 'Networks & Graphs', engine: 'nwdiag', code: `nwdiag {
+  network wan {
+    address = "203.0.113.0/30";
+    isp_router;
+    edge_router;
+  }
+  network campus_core {
+    address = "10.1.0.0/16";
+    edge_router;
+    core_sw1;
+    core_sw2;
+  }
+  network access_vlan10 {
+    address = "10.1.10.0/24";
+    core_sw1;
+    access_sw1;
+  }
+  network access_vlan20 {
+    address = "10.1.20.0/24";
+    core_sw2;
+    access_sw2;
+  }
+}` },
+
+  // Rackdiag (simple rack layout)
+  { key: 'rackdiag_basic', label: 'Rack Layout', category: 'Networks & Graphs', engine: 'rackdiag', code: `rackdiag {
+  1: UPS
+  2: CoreSwitch
+  3: Firewall
+  4: Server01
+  5: Server02
+}` },
+
+  // ERD (Kroki)
+  { key: 'erd_basic', label: 'ERD (Kroki)', category: 'Data & Relationships', engine: 'erd', code: `[Student]
+*id
+name
+email
++enrollment_id
+
+[Course]
+*id
+title
+credits
+
+[Enrollment]
+*id
++student_id
++course_id
+grade
+
+Student *--* Enrollment
+Course *--* Enrollment` },
+
+  // Bytefield (memory layout)
+  { key: 'bytefield_basic', label: 'Bytefield Map', category: 'Data & Relationships', engine: 'bytefield', code: `bytefield {
+  (header: 2) (payload: 6) (checksum: 2)
+}` },
+
+  // Packetdiag (protocol stack)
+  { key: 'packetdiag_basic', label: 'Packet Stack', category: 'Networks & Graphs', engine: 'packetdiag', code: `packetdiag {
+  0-13: Ethernet
+  14-33: IP
+  34-53: TCP
+  54-?: Data
 }` },
 ];

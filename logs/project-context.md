@@ -11,9 +11,9 @@
 **Purpose**: Convert diagram code to SVG and PNG images with support for multiple diagram engines
 
 **Core Features**:
-- **Multi-engine support**: Mermaid (client-side), PlantUML, Graphviz, D2 (via Kroki API)
+- **Multi-engine support**: Mermaid (client-side) plus Kroki-backed engines: PlantUML, Graphviz, D2, Svgbob, Nomnoml, Seqdiag, Actdiag, Nwdiag, Rackdiag, ERD (Kroki), Bytefield, Packetdiag
 - Live diagram rendering with engine selector and theme support
-- Template library with 19 curated diagram types across 4 engines
+- Template library with 29 curated diagram types across 13 engines
 - SVG and PNG export with quality controls (scale, padding, background)
 - Hybrid export: Native rendering for Mermaid, Kroki API for remote engines
 - Clipboard operations (copy SVG, copy permalink)
@@ -196,17 +196,26 @@ const LS_KEYS = {
 // Cached per session to avoid repeated health checks
 ```
 
-**Engine configuration** (in `data.js`):
+**Engine configuration** (in `data.js`, excerpt):
 ```javascript
 const DIAGRAM_ENGINES = [
   { id: 'mermaid', label: 'Mermaid ⚡', clientSide: true },
   { id: 'plantuml', label: 'PlantUML 🌐', clientSide: false, krokiType: 'plantuml' },
   { id: 'graphviz', label: 'Graphviz 🌐', clientSide: false, krokiType: 'graphviz' },
-  { id: 'd2', label: 'D2 🌐', clientSide: false, krokiType: 'd2' }
+  { id: 'd2', label: 'D2 🌐', clientSide: false, krokiType: 'd2' },
+  { id: 'svgbob', label: 'Svgbob 🌐', clientSide: false, krokiType: 'svgbob' },
+  { id: 'nomnoml', label: 'Nomnoml 🌐', clientSide: false, krokiType: 'nomnoml' },
+  { id: 'seqdiag', label: 'Seqdiag 🌐', clientSide: false, krokiType: 'seqdiag' },
+  { id: 'actdiag', label: 'Actdiag 🌐', clientSide: false, krokiType: 'actdiag' },
+  { id: 'nwdiag', label: 'Nwdiag 🌐', clientSide: false, krokiType: 'nwdiag' },
+  { id: 'rackdiag', label: 'Rackdiag 🌐', clientSide: false, krokiType: 'rackdiag' },
+  { id: 'erd', label: 'ERD (Kroki) 🌐', clientSide: false, krokiType: 'erd' },
+  { id: 'bytefield', label: 'Bytefield 🌐', clientSide: false, krokiType: 'bytefield' },
+  { id: 'packetdiag', label: 'Packetdiag 🌐', clientSide: false, krokiType: 'packetdiag' }
 ];
 ```
-- Icons: ⚡ = client-side rendering, 🌐 = remote Kroki rendering
-- `krokiType` maps to Kroki API endpoint path
+- Icons: ⚡ = client-side rendering (Mermaid), 🌐 = remote Kroki rendering
+- `krokiType` maps directly to Kroki API endpoint path
 
 **Template structure** (in `data.js`):
 ```javascript
@@ -304,6 +313,17 @@ POST ${krokiBase}/${engineType}/png
 Content-Type: text/plain
 Body: raw diagram code
 ```
+
+Resilience (Nov 2025): public kroki.io occasionally returns HTTP 504 (Cloudflare) for POST traffic. The app implements a multi-step fallback in `krokiRequest()`:
+
+```
+1) POST text/plain
+2) POST application/json { diagram_source }
+3) If engineType === 'graphviz', also try 'dot'
+4) GET /{engine}/{format}/{deflate+base64url(code)}
+```
+
+If all fail (likely outage), the UI suggests retrying later or setting a custom Kroki base URL (self-host or regional mirror) in Advanced settings.
 
 **Timeout Settings**:
 - SVG rendering: 20 seconds
@@ -444,15 +464,27 @@ Body: raw diagram code
 - **Planning & Timeline**: Gantt, timeline (2 templates)
 - **Networks & Graphs**: Git graph, dependencies, topology (4 templates)
 
-**Template distribution** (19 total):
-- **Mermaid (9)**: flowchart TD/LR, sequence, class, state, ER, git graph, user journey, quadrant, timeline
+**Template distribution** (29 total):
+- **Mermaid (9)**: flowchart TD/LR, sequence, class, state, ER (Mermaid), git graph, user journey, quadrant, timeline
 - **PlantUML (4)**: component, use case, activity, deployment
 - **Graphviz (3)**: directed graph, hierarchical tree, network topology
 - **D2 (3)**: simple architecture, layered system, grid layout
+- **Svgbob (1)**: ASCII sketch starter
+- **Nomnoml (1)**: conceptual model (student/course)
+- **Seqdiag (1)**: alt sequence (client/server/DB)
+- **Actdiag (1)**: alt activity pipeline
+- **Nwdiag (2)**: LAN segments, WAN design
+- **Rackdiag (1)**: simple rack layout
+- **ERD (Kroki) (1)**: basic relational diagram
+- **Bytefield (1)**: memory layout map
+- **Packetdiag (1)**: protocol stack packet layout
 
-**Removed templates** (and why):
+**Removed / Deferred templates**:
 - **Kanban**: Not a supported Mermaid type
 - **Mindmap**: Parser instability causing page hangs
+- **BPMN**: Deferred (XML editing overhead)
+- **Vega/Vega-Lite**: Deferred (client-side visualization libs larger than current scope)
+- **Excalidraw**: Deferred (canvas/editor mode out of current scope)
 
 ---
 
@@ -550,13 +582,12 @@ Body: raw diagram code
 
 ---
 
-## Recent Changes (October 2025)
+## Recent Changes (October–November 2025)
 
 **Multi-Engine Expansion**:
-- Added support for PlantUML, Graphviz, D2 via Kroki API
-- Implemented engine selector UI with badge showing active engine
-- Added 10 new templates (4 PlantUML, 3 Graphviz, 3 D2)
-- Reorganized template categories to use-case based system
+- Initial (Oct): Added support for PlantUML, Graphviz, D2 via Kroki API
+- Phase 2 (Nov): Added Kroki engines Svgbob, Nomnoml, Seqdiag, Actdiag, Nwdiag, Rackdiag, ERD (Kroki), Bytefield, Packetdiag (total engines now 13)
+- Added second Nwdiag template (WAN design) + starter templates for each new engine
 - Direction selector auto-disables for non-Mermaid engines
 
 **Performance & Security**:
@@ -582,7 +613,26 @@ Body: raw diagram code
 
 ---
 
-**Last Updated**: October 19, 2025  
+**Last Updated**: November 10, 2025  
 **Mermaid Version**: 10.9.4 (pinned)  
 **Kroki Integration**: Active (public instance + self-hosting support)  
-**Status**: Production-ready with multi-engine support
+**Status**: Production-ready with expanded multi-engine support (13 engines total)
+
+---
+## New Engines (Phase 2 Summary)
+
+| Engine | Use Case | Notes |
+|--------|----------|-------|
+| Svgbob | Quick ASCII sketches | Fast ideation, lightweight |
+| Nomnoml | Conceptual class/ER models | Simple syntax for teaching |
+| Seqdiag | Alternate sequence diagrams | Complements Mermaid/PlantUML |
+| Actdiag | Activity/process flows | Blockdiag ecosystem |
+| Nwdiag | Network segments/VLAN/WAN | Supports subnet annotations |
+| Rackdiag | Physical rack layouts | Hardware planning/inventory |
+| ERD (Kroki) | Simple relational schemas | Minimal, complements Mermaid ER |
+| Bytefield | Memory/packet layouts | Systems & protocol teaching |
+| Packetdiag | Protocol stack diagrams | Network upgrade documentation |
+
+All new engines use the existing Kroki request pipeline (`renderKroki`, `krokiRequest`, PNG fallback) and integrate with session caching & SVG sanitization automatically.
+
+````

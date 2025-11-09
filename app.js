@@ -277,6 +277,115 @@ async function fetchWithTimeout(url, opts = {}, timeout = 20000) {
   }
 }
 
+// Robust Kroki request with fallbacks for recent API changes
+// Tries POST text/plain first, then POST application/json { diagram_source }
+// For Graphviz, also falls back from 'graphviz' to 'dot' type if needed
+async function krokiRequest(engineType, format, code, timeout = 20000) {
+  const base = (els.krokiBase && els.krokiBase.value)
+    ? els.krokiBase.value.replace(/\/+$/, '')
+    : 'https://kroki.io';
+
+  const accept = format === 'png' ? 'image/png' : 'image/svg+xml';
+
+  const tryOnce = async (type, style) => {
+    const url = `${base}/${type}/${format}`;
+    if (style === 'text') {
+      return await fetchWithTimeout(
+        url,
+        { method: 'POST', headers: { 'Content-Type': 'text/plain', 'Accept': accept }, body: code },
+        timeout
+      );
+    } else if (style === 'json') {
+      // Kroki also supports JSON body with diagram_source
+      return await fetchWithTimeout(
+        url,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': accept },
+          body: JSON.stringify({ diagram_source: code }),
+        },
+        timeout
+      );
+    }
+    throw new Error('Unknown request style');
+  };
+
+  // 1) Try text/plain for declared type
+  try {
+    let res = await tryOnce(engineType, 'text');
+    if (res.ok) return res;
+    // 2) Try JSON for declared type
+    res = await tryOnce(engineType, 'json');
+    if (res.ok) return res;
+
+    // 3) Graphviz may be exposed as 'dot' on some instances; try fallbacks
+    if (engineType === 'graphviz') {
+      res = await tryOnce('dot', 'text');
+      if (res.ok) return res;
+      res = await tryOnce('dot', 'json');
+      if (res.ok) return res;
+    }
+
+    // If none worked, return the last response (will have status)
+    return res;
+  } catch (err) {
+    // Network error on text/plain; try JSON, then graphviz/dot
+    try {
+      let res = await tryOnce(engineType, 'json');
+      if (res.ok) return res;
+      if (engineType === 'graphviz') {
+        res = await tryOnce('dot', 'text');
+        if (res.ok) return res;
+        res = await tryOnce('dot', 'json');
+        if (res.ok) return res;
+      }
+      // As a last resort, attempt GET-encoded fallback
+      if (['svg','png'].includes(format)) {
+        try {
+          const getRes = await krokiGetEncoded(engineType, format, code, timeout);
+          if (getRes && getRes.ok) return getRes;
+        } catch (_) { /* ignore */ }
+      }
+      return res; // not ok
+    } catch (err2) {
+      // Surface the error
+      throw err2;
+    }
+  }
+}
+
+// GET fallback using Kroki's encoded URL scheme (deflate + base64url)
+async function krokiGetEncoded(engineType, format, code, timeout = 20000) {
+  const base = (els.krokiBase && els.krokiBase.value)
+    ? els.krokiBase.value.replace(/\/+$/, '')
+    : 'https://kroki.io';
+  const accept = format === 'png' ? 'image/png' : 'image/svg+xml';
+  const encoded = await encodeKrokiSource(code);
+  const url = `${base}/${engineType}/${format}/${encoded}`;
+  return await fetchWithTimeout(url, { headers: { 'Accept': accept } }, timeout);
+}
+
+// Encode using deflate + base64url (no padding). Uses CompressionStream when available.
+async function encodeKrokiSource(text) {
+  if (typeof CompressionStream === 'function') {
+    const cs = new CompressionStream('deflate');
+    const writer = cs.writable.getWriter();
+    await writer.write(new TextEncoder().encode(text));
+    await writer.close();
+    const buf = await new Response(cs.readable).arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary).replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_');
+  } else {
+    // No deflate available; fall back to uncompressed base64url (may be rejected for size)
+    const enc = new TextEncoder().encode(text);
+    let binary = '';
+    for (let i = 0; i < enc.length; i++) binary += String.fromCharCode(enc[i]);
+    return btoa(binary).replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_');
+  }
+}
+
 // Render via Kroki API
 async function renderKroki(engineId, code) {
   const engineCfg = DIAGRAM_ENGINES.find(e => e.id === engineId);
@@ -294,12 +403,13 @@ async function renderKroki(engineId, code) {
   const available = await checkKrokiAvailability();
   if (!available) throw new Error('Kroki service unavailable. Check your Kroki base URL or network.');
   
-  const base = (els.krokiBase && els.krokiBase.value) ? els.krokiBase.value.replace(/\/+$/, '') : 'https://kroki.io';
-  const url = `${base}/${engineCfg.krokiType}/svg`;
-  const res = await fetchWithTimeout(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: code }, 20000);
+  const res = await krokiRequest(engineCfg.krokiType, 'svg', code, 20000);
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
-    const e = new Error(`Kroki render error (${res.status}): ${txt}`);
+    const hint = res.status >= 500
+      ? 'Service is currently unreachable (often a temporary outage). Try again in a few minutes or set a custom Kroki base URL in More options ▸.'
+      : 'Check your diagram syntax or try again.';
+    const e = new Error(`Kroki render error (${res.status}): ${txt}\n${hint}`);
     throw e;
   }
   const svg = await res.text();
@@ -315,9 +425,7 @@ async function renderKroki(engineId, code) {
 async function downloadPngFromKroki(engineId, code, filename = 'diagram') {
   const engineCfg = DIAGRAM_ENGINES.find(e => e.id === engineId);
   if (!engineCfg || !engineCfg.krokiType) throw new Error('Unsupported engine for Kroki PNG');
-  const base = (els.krokiBase && els.krokiBase.value) ? els.krokiBase.value.replace(/\/+$/, '') : 'https://kroki.io';
-  const url = `${base}/${engineCfg.krokiType}/png`;
-  const res = await fetchWithTimeout(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: code }, 30000);
+  const res = await krokiRequest(engineCfg.krokiType, 'png', code, 30000);
   if (!res.ok) throw new Error(`Kroki PNG failed: ${res.status}`);
   const blob = await res.blob();
   const link = document.createElement('a');
@@ -559,6 +667,9 @@ function makeFriendlyHint(raw) {
 
 // Template dropdown UI
 function buildTemplateDropdown() {
+  // Close dropdown when rebuilding (e.g., when switching engines)
+  els.templateDropdown.classList.remove('is-active');
+  
   const currentEngine = els.diagramType?.value || 'mermaid';
   const templatesForEngine = TEMPLATES.filter(t => t.engine === currentEngine);
   const categories = [...new Set(templatesForEngine.map(t => t.category))];
@@ -597,12 +708,6 @@ function buildTemplateDropdown() {
       divider.className = 'dropdown-divider';
       els.templateList.appendChild(divider);
     }
-  });
-
-  const trigger = els.templateDropdown.querySelector('.dropdown-trigger .button');
-  trigger.addEventListener('click', () => toggleDropdown());
-  document.addEventListener('click', (e) => {
-    if (!els.templateDropdown.contains(e.target)) toggleDropdown(false);
   });
 }
 
@@ -665,6 +770,19 @@ function bindEvents() {
 
   bindAdvancedToggle();
 
+  // Template dropdown trigger (attach once)
+  const templateTrigger = els.templateDropdown.querySelector('.dropdown-trigger .button');
+  if (templateTrigger) {
+    templateTrigger.addEventListener('click', () => toggleDropdown());
+  }
+  
+  // Close dropdown when clicking outside (attach once)
+  document.addEventListener('click', (e) => {
+    if (!els.templateDropdown.contains(e.target)) {
+      toggleDropdown(false);
+    }
+  });
+
   els.btnReset.addEventListener('click', resetDefaults);
 
   els.presetPoster.addEventListener('click', applyPresetPoster);
@@ -687,6 +805,15 @@ function bindEvents() {
     // ensure initial direction availability
     const initEng = els.diagramType.value || 'mermaid';
     if (els.direction) els.direction.disabled = (initEng !== 'mermaid');
+  }
+
+  // Clear Kroki availability cache when base URL changes
+  if (els.krokiBase) {
+    els.krokiBase.addEventListener('change', () => {
+      sessionStorage.removeItem('kroki:available');
+      showToast('Kroki base URL updated. Availability will be rechecked.', 'is-info');
+      saveState();
+    });
   }
 
   // Keyboard shortcut
@@ -791,12 +918,10 @@ async function checkKrokiAvailability() {
   if (cached) return cached === 'true';
   
   try {
-    const base = (els.krokiBase && els.krokiBase.value) ? els.krokiBase.value.replace(/\/+$/, '') : 'https://kroki.io';
-    // Try a minimal plantuml diagram as health check
+    // Try a minimal PlantUML diagram as health check with fallbacks
     const testCode = '@startuml\nA -> B\n@enduml';
-    const url = `${base}/plantuml/svg`;
-    const res = await fetchWithTimeout(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: testCode }, 5000);
-    const available = res.ok;
+    const res = await krokiRequest('plantuml', 'svg', testCode, 5000);
+    const available = !!res && res.ok;
     sessionStorage.setItem(cacheKey, available ? 'true' : 'false');
     return available;
   } catch {
