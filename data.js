@@ -1,6 +1,7 @@
 // Diagram engine configuration (expanded)
 const DIAGRAM_ENGINES = [
   { id: 'mermaid', label: 'Mermaid ⚡', clientSide: true },
+  { id: 'plaintext', label: 'Plain Text 📝', clientSide: true },
   { id: 'plantuml', label: 'PlantUML 🌐', clientSide: false, krokiType: 'plantuml' },
   { id: 'graphviz', label: 'Graphviz 🌐', clientSide: false, krokiType: 'graphviz' },
   { id: 'd2', label: 'D2 🌐', clientSide: false, krokiType: 'd2' },
@@ -16,7 +17,7 @@ const DIAGRAM_ENGINES = [
   { id: 'packetdiag', label: 'Packetdiag 🌐', clientSide: false, krokiType: 'packetdiag' }
 ];
 
-// Template gallery (expanded: 30 curated across 14 engines)
+// Template gallery (expanded: 32 curated across 15 engines)
 const TEMPLATES = [
   // Mermaid templates (9)
   { key: 'flowchart_td', label: 'Flowchart (Top-Down)', category: 'Process & Flow', engine: 'mermaid', code: `flowchart TD
@@ -440,4 +441,69 @@ Course *--* Enrollment` },
   34-53: TCP
   54-?: Data
 }` },
+
+  // Plain Text templates
+  { key: 'plaintext_html_doc', label: 'HTML Documentation', category: 'Process & Flow', engine: 'plaintext', code: `┌─────────────────────────────────────────────────────────┐
+│              HTML FORM STRUCTURE                        │
+└─────────────────────────────────────────────────────────┘
+
+<form action="/submit" method="POST">
+│
+├─ <fieldset> Contact Information
+│  │
+│  ├─ <legend>Personal Details</legend>
+│  │
+│  ├─ <label for="name">Full Name:</label>
+│  │   <input type="text" id="name" required>
+│  │      └─ CONNECTED BY "for" and "id" ─┘
+│  │
+│  └─ <label for="email">Email:</label>
+│      <input type="email" id="email" required>
+│
+└─ <button type="submit">Submit</button>
+
+
+KEY CONCEPTS
+════════════
+✓ Labels improve accessibility
+✓ "for" attribute connects label to input
+✓ Click label → focuses input
+✓ Screen readers announce relationships
+` },
+
+  { key: 'plaintext_ascii_box', label: 'ASCII Box Diagram', category: 'Software Architecture', engine: 'plaintext', code: `┌──────────────────────────────────────────────────────┐
+│                    SYSTEM ARCHITECTURE               │
+└──────────────────────────────────────────────────────┘
+
+          ┌─────────────┐
+          │   Browser   │
+          └──────┬──────┘
+                 │ HTTPS
+                 ↓
+          ┌─────────────┐
+          │ Web Server  │
+          │   (Nginx)   │
+          └──────┬──────┘
+                 │
+       ┌─────────┴─────────┐
+       ↓                   ↓
+┌─────────────┐     ┌─────────────┐
+│ Application │     │   Static    │
+│   Server    │────→│   Assets    │
+│  (Node.js)  │     │    (CDN)    │
+└──────┬──────┘     └─────────────┘
+       │
+       ↓
+┌─────────────┐
+│  Database   │
+│ (PostgreSQL)│
+└─────────────┘
+
+
+NOTES
+═════
+→ Arrows show data flow
+• Boxes represent services
+• Text labels describe components
+` },
 ];

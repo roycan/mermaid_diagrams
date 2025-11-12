@@ -66,10 +66,17 @@ function initMermaid() {
 // Render diagram
 async function renderDiagram() {
   hideError();
-  // If selected engine is not Mermaid (client-side), inform user until Kroki integration is wired
   const selectedEngine = els.diagramType?.value || 'mermaid';
+  
+  // Route to Plain Text renderer
+  if (selectedEngine === 'plaintext') {
+    renderPlainText(els.input.value);
+    saveState();
+    return;
+  }
+  
+  // Route to Kroki renderer for remote engines
   if (selectedEngine !== 'mermaid') {
-    // For non-mermaid engines, route to Kroki renderer
     try {
       await renderKroki(selectedEngine, els.input.value);
       saveState();
@@ -115,6 +122,14 @@ function injectDirection(src, dir) {
 
 // Downloads
 function downloadSVG() {
+  const selectedEngine = els.diagramType?.value || 'mermaid';
+  
+  // Plain text doesn't produce SVG
+  if (selectedEngine === 'plaintext') {
+    showToast('SVG export not available for plain text', 'is-info');
+    return;
+  }
+  
   const svgEl = els.preview.querySelector('svg');
   if (!svgEl) return showToast('Nothing to download. Render first.', 'is-warning');
   
@@ -137,6 +152,18 @@ async function downloadPNG() {
   try {
     const selectedEngine = els.diagramType?.value || 'mermaid';
     const filename = safeFilename();
+    
+    // Handle Plain Text engine
+    if (selectedEngine === 'plaintext') {
+      const exportSettings = {
+        scale: els.scale.value || '2',
+        bg: els.bg.value || '#ffffff',
+        padding: els.padding.value || '16',
+        filename: filename
+      };
+      downloadPlainTextPNG(els.input.value, exportSettings);
+      return;
+    }
 
     if (selectedEngine !== 'mermaid') {
       // For non-Mermaid engines, try Kroki PNG endpoint first
@@ -386,6 +413,174 @@ async function encodeKrokiSource(text) {
   }
 }
 
+// ============================================================================
+// PLAIN TEXT RENDERING (Canvas-based)
+// ============================================================================
+
+/**
+ * Render plain text to canvas with monospace font
+ * Handles HTML tags as literal text, preserves box-drawing characters
+ * @param {string} text - Raw text content
+ * @param {Object} options - Rendering options
+ * @returns {HTMLCanvasElement} - Canvas with rendered text
+ */
+function renderPlainTextToCanvas(text, options = {}) {
+  const {
+    fontSize = 13,
+    fontFamily = 'Courier New, Consolas, Monaco, Liberation Mono, monospace',
+    lineHeight = 1.4,
+    padding = 40,
+    background = '#ffffff',
+    textColor = '#000000',
+    scale = 2
+  } = options;
+
+  // Preprocess text: replace tabs with spaces, ensure empty lines render
+  const processedText = text
+    .replace(/\t/g, '    ')  // Tabs → 4 spaces
+    .split('\n')
+    .map(line => line.length === 0 ? ' ' : line)  // Empty lines → single space
+    .join('\n');
+
+  const lines = processedText.split('\n');
+  
+  // Check for very long lines (> 200 chars)
+  const maxLineLength = Math.max(...lines.map(l => l.length));
+  if (maxLineLength > 200) {
+    showToast('⚠️ Very wide line detected, canvas may be large', 'is-warning');
+  }
+
+  // Create temporary canvas to measure text
+  const tempCanvas = document.createElement('canvas');
+  const tempCtx = tempCanvas.getContext('2d');
+  tempCtx.font = `${fontSize}px ${fontFamily}`;
+  
+  // Calculate required dimensions by measuring actual text
+  let maxWidth = 0;
+  lines.forEach(line => {
+    const metrics = tempCtx.measureText(line);
+    if (metrics.width > maxWidth) {
+      maxWidth = metrics.width;
+    }
+  });
+  
+  // Calculate canvas size
+  const canvasWidth = Math.ceil(maxWidth) + (padding * 2);
+  const canvasHeight = Math.ceil(lines.length * fontSize * lineHeight) + (padding * 2);
+  
+  // Create final canvas (with scale for high DPI)
+  const canvas = document.createElement('canvas');
+  canvas.width = canvasWidth * scale;
+  canvas.height = canvasHeight * scale;
+  canvas.style.width = canvasWidth + 'px';
+  canvas.style.height = canvasHeight + 'px';
+  
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+  
+  // Fill background
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  
+  // Configure text rendering
+  ctx.font = `${fontSize}px ${fontFamily}`;
+  ctx.fillStyle = textColor;
+  ctx.textBaseline = 'top';
+  
+  // Render each line
+  let y = padding;
+  lines.forEach(line => {
+    ctx.fillText(line, padding, y);
+    y += fontSize * lineHeight;
+  });
+  
+  return canvas;
+}
+
+/**
+ * Render plain text and display in preview area
+ * @param {string} text - Raw text content
+ */
+function renderPlainText(text) {
+  try {
+    hideError();
+    
+    if (!text || text.trim().length === 0) {
+      showToast('No text to render.', 'is-warning');
+      return;
+    }
+    
+    // Get background setting for preview consistency
+    const bg = (els.bg.value || '').toLowerCase();
+    const background = bg === 'transparent' ? '#ffffff' : bg;
+    
+    // Render to canvas
+    const canvas = renderPlainTextToCanvas(text, {
+      fontSize: 13,
+      background: background,
+      scale: 2
+    });
+    
+    // Convert canvas to data URL and display as image
+    const dataUrl = canvas.toDataURL('image/png');
+    els.preview.innerHTML = `<img src="${dataUrl}" alt="Plain text preview" style="max-width:100%; border: 1px solid #ddd;">`;
+    els.preview.setAttribute('data-engine', 'plaintext');
+    
+    showToast('Plain text rendered successfully', 'is-success');
+  } catch (err) {
+    console.error('Plain text rendering error:', err);
+    showError(err);
+  }
+}
+
+/**
+ * Export plain text as PNG file
+ * @param {string} text - Raw text content
+ * @param {Object} settings - Export settings (scale, padding, bg, filename)
+ */
+function downloadPlainTextPNG(text, settings) {
+  try {
+    if (!text || text.trim().length === 0) {
+      showToast('No text to export. Enter some text first.', 'is-warning');
+      return;
+    }
+    
+    // Render to canvas with user settings
+    const canvas = renderPlainTextToCanvas(text, {
+      fontSize: 13,
+      background: settings.bg,
+      padding: parseInt(settings.padding) || 16,
+      scale: parseInt(settings.scale) || 2
+    });
+    
+    // Convert to blob and download
+    canvas.toBlob(blob => {
+      if (!blob) {
+        showToast('Failed to create PNG. Please try again.', 'is-danger');
+        return;
+      }
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${settings.filename || 'text'}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      showToast(`✓ PNG downloaded: ${a.download}`, 'is-success');
+    }, 'image/png');
+  } catch (err) {
+    console.error('Plain text PNG export failed:', err);
+    showToast('PNG export failed. See console for details.', 'is-danger');
+  }
+}
+
+// ============================================================================
+// END PLAIN TEXT RENDERING
+// ============================================================================
+
 // Render via Kroki API
 async function renderKroki(engineId, code) {
   const engineCfg = DIAGRAM_ENGINES.find(e => e.id === engineId);
@@ -485,6 +680,14 @@ async function drawSvgToCanvasCanvg(svgText, canvas, ctx, bg) {
 
 // Clipboard & permalink
 async function copySVG() {
+  const selectedEngine = els.diagramType?.value || 'mermaid';
+  
+  // Plain text doesn't produce SVG
+  if (selectedEngine === 'plaintext') {
+    showToast('SVG export not available for plain text', 'is-info');
+    return;
+  }
+  
   const svgEl = els.preview.querySelector('svg');
   if (!svgEl) return showToast('Nothing to copy. Render first.', 'is-warning');
   
@@ -798,13 +1001,19 @@ function bindEvents() {
       // Option B behavior: keep editor text, warn about syntax differences (unless suppressed)
       const suppressed = els.suppressEngineWarning && els.suppressEngineWarning.checked;
       if (!suppressed) showToast(`${eng} selected — keeping editor text. Syntax may differ between engines.`, 'is-warning');
+      
       // Disable direction selector for non-mermaid engines
       if (els.direction) els.direction.disabled = (eng !== 'mermaid');
+      
+      // Disable theme selector for plaintext engine
+      if (els.theme) els.theme.disabled = (eng === 'plaintext');
+      
       saveState();
     });
-    // ensure initial direction availability
+    // ensure initial direction and theme availability
     const initEng = els.diagramType.value || 'mermaid';
     if (els.direction) els.direction.disabled = (initEng !== 'mermaid');
+    if (els.theme) els.theme.disabled = (initEng === 'plaintext');
   }
 
   // Clear Kroki availability cache when base URL changes

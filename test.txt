@@ -1,0 +1,103 @@
+┌──────────────────────────────────────────────────────────────┐
+│                   HTML FORM STRUCTURE                        │
+└──────────────────────────────────────────────────────────────┘
+
+<form action="/submit" method="POST">
+│
+├─ <fieldset> Contact Information
+│  │
+│  ├─ <legend>Personal Details</legend>
+│  │
+│  ├─ <label for="name">Full Name:</label>
+│  │   <input type="text" id="name" name="fullname" required>
+│  │      └─ CONNECTED BY "for" and "id" ─┘
+│  │
+│  ├─ <label for="email">Email:</label>
+│  │   <input type="email" id="email" name="email" required>
+│  │
+│  └─ <label for="phone">Phone:</label>
+│      <input type="tel" id="phone" name="phone">
+│
+├─ <fieldset> Address
+│  │
+│  ├─ <legend>Location</legend>
+│  │
+│  ├─ <label for="street">Street:</label>
+│  │   <input type="text" id="street" name="street">
+│  │
+│  └─ <label for="city">City:</label>
+│      <select id="city" name="city">
+│        <option value="">Choose...</option>
+│        <option value="manila">Manila</option>
+│        <option value="quezon">Quezon City</option>
+│      </select>
+│
+└─ <button type="submit">Submit Form</button>
+
+
+LABEL + INPUT ASSOCIATION (ACCESSIBILITY)
+══════════════════════════════════════════
+
+Method 1: Using "for" attribute (RECOMMENDED)
+───────────────────────────────────────────────
+<label for="username">Username:</label>
+<input type="text" id="username" name="username">
+                      └─ MUST MATCH ─┘
+
+Benefits:
+✓ Click label → focuses input
+✓ Screen reader announces label
+✓ Larger click area (easier on mobile)
+
+
+Method 2: Wrapping (Alternative)
+─────────────────────────────────
+<label>
+  Username:
+  <input type="text" name="username">
+</label>
+
+
+COMMON INPUT TYPES
+══════════════════
+text      - Regular text input
+email     - Email validation + keyboard
+tel       - Phone number + numeric keyboard
+number    - Numeric input with +/- buttons
+password  - Hidden characters (••••)
+date      - Date picker calendar
+checkbox  - Multiple selections
+radio     - Single selection from group
+file      - File upload
+submit    - Submit button
+
+
+EXAMPLE: Student Registration Form
+═══════════════════════════════════
+
+<form>
+  <fieldset>
+    <legend>Student Information</legend>
+    
+    <label for="lrn">LRN:</label>
+    <input type="text" id="lrn" required>
+    
+    <label for="grade">Grade Level:</label>
+    <select id="grade" required>
+      <option value="">Select...</option>
+      <option value="9">Grade 9</option>
+      <option value="10">Grade 10</option>
+    </select>
+  </fieldset>
+  
+  <button type="submit">Enroll</button>
+</form>
+
+
+WHY USE PROPER FORM STRUCTURE?
+═══════════════════════════════
+✓ Accessibility (screen readers understand)
+✓ Mobile-friendly (correct keyboards appear)
+✓ Built-in validation (email, required, etc.)
+✓ Better UX (click labels to focus inputs)
+✓ Semantic meaning (forms are for data collection)
