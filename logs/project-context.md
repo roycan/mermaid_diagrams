@@ -11,9 +11,9 @@
 **Purpose**: Convert diagram code to SVG and PNG images with support for multiple diagram engines
 
 **Core Features**:
-- **Multi-engine support**: Mermaid (client-side) plus Kroki-backed engines: PlantUML, Graphviz, D2, Svgbob, Nomnoml, Seqdiag, Actdiag, Nwdiag, Rackdiag, ERD (Kroki), Bytefield, Packetdiag
+- **Multi-engine support**: Mermaid (client-side) plus Kroki-backed engines: PlantUML, Graphviz, D2, Svgbob, Ditaa, Nomnoml, Seqdiag, Actdiag, Nwdiag, Rackdiag, ERD (Kroki), Bytefield, Packetdiag
 - Live diagram rendering with engine selector and theme support
-- Template library with 29 curated diagram types across 13 engines
+- Template library with 30 curated diagram types across 14 engines
 - SVG and PNG export with quality controls (scale, padding, background)
 - Hybrid export: Native rendering for Mermaid, Kroki API for remote engines
 - Clipboard operations (copy SVG, copy permalink)
@@ -204,6 +204,7 @@ const DIAGRAM_ENGINES = [
   { id: 'graphviz', label: 'Graphviz 🌐', clientSide: false, krokiType: 'graphviz' },
   { id: 'd2', label: 'D2 🌐', clientSide: false, krokiType: 'd2' },
   { id: 'svgbob', label: 'Svgbob 🌐', clientSide: false, krokiType: 'svgbob' },
+  { id: 'ditaa', label: 'Ditaa 🌐', clientSide: false, krokiType: 'ditaa' },
   { id: 'nomnoml', label: 'Nomnoml 🌐', clientSide: false, krokiType: 'nomnoml' },
   { id: 'seqdiag', label: 'Seqdiag 🌐', clientSide: false, krokiType: 'seqdiag' },
   { id: 'actdiag', label: 'Actdiag 🌐', clientSide: false, krokiType: 'actdiag' },
@@ -464,12 +465,13 @@ If all fail (likely outage), the UI suggests retrying later or setting a custom 
 - **Planning & Timeline**: Gantt, timeline (2 templates)
 - **Networks & Graphs**: Git graph, dependencies, topology (4 templates)
 
-**Template distribution** (29 total):
+**Template distribution** (30 total):
 - **Mermaid (9)**: flowchart TD/LR, sequence, class, state, ER (Mermaid), git graph, user journey, quadrant, timeline
 - **PlantUML (4)**: component, use case, activity, deployment
 - **Graphviz (3)**: directed graph, hierarchical tree, network topology
 - **D2 (3)**: simple architecture, layered system, grid layout
 - **Svgbob (1)**: ASCII sketch starter
+- **Ditaa (1)**: ASCII art diagram with boxes and colors
 - **Nomnoml (1)**: conceptual model (student/course)
 - **Seqdiag (1)**: alt sequence (client/server/DB)
 - **Actdiag (1)**: alt activity pipeline
@@ -613,10 +615,10 @@ If all fail (likely outage), the UI suggests retrying later or setting a custom 
 
 ---
 
-**Last Updated**: November 10, 2025  
+**Last Updated**: November 12, 2025  
 **Mermaid Version**: 10.9.4 (pinned)  
 **Kroki Integration**: Active (public instance + self-hosting support)  
-**Status**: Production-ready with expanded multi-engine support (13 engines total)
+**Status**: Production-ready with expanded multi-engine support (14 engines total)
 
 ---
 ## New Engines (Phase 2 Summary)
@@ -624,6 +626,7 @@ If all fail (likely outage), the UI suggests retrying later or setting a custom 
 | Engine | Use Case | Notes |
 |--------|----------|-------|
 | Svgbob | Quick ASCII sketches | Fast ideation, lightweight |
+| Ditaa | ASCII art box diagrams | Structured boxes with colors/shadows/3D effects |
 | Nomnoml | Conceptual class/ER models | Simple syntax for teaching |
 | Seqdiag | Alternate sequence diagrams | Complements Mermaid/PlantUML |
 | Actdiag | Activity/process flows | Blockdiag ecosystem |

@@ -15,11 +15,11 @@ Hi! I'm working on a multi-engine diagram converter web app. Before we begin, pl
 📄 **File to read**: `logs/project-context.md` (attach this file)
 
 **Quick summary**:
-- **What it does**: Converts diagram code to SVG/PNG with support for 13 engines (Mermaid + 12 Kroki-backed: PlantUML, Graphviz, D2, Svgbob, Nomnoml, Seqdiag, Actdiag, Nwdiag, Rackdiag, ERD, Bytefield, Packetdiag)
+- **What it does**: Converts diagram code to SVG/PNG with support for 14 engines (Mermaid + 13 Kroki-backed: PlantUML, Graphviz, D2, Svgbob, Ditaa, Nomnoml, Seqdiag, Actdiag, Nwdiag, Rackdiag, ERD, Bytefield, Packetdiag)
 - **Tech**: Vanilla JS, Mermaid v10.9.4 (client-side), Kroki API (remote), Canvg, Bulma CSS
 - **Architecture**: Hybrid rendering (Mermaid local, others via Kroki)
-- **Key files**: index.html (UI), app.js (logic ~650 lines), data.js (engines + 29 templates)
-- **Recent additions**: Multi-engine support (Oct), Phase 2 expansion (Nov): 9 new engines, session caching, SVG sanitization, Kroki integration
+- **Key files**: index.html (UI), app.js (logic ~650 lines), data.js (engines + 30 templates)
+- **Recent additions**: Multi-engine support (Oct), Phase 2 expansion (Nov): 10 new engines, session caching, SVG sanitization, Kroki integration
 
 Once you've read the context, I need help with: [describe what you want to do]
 ```
@@ -37,7 +37,7 @@ I need help with the multi-engine system in my diagram converter.
 📄 **Please read**: `logs/project-context.md` (attach) — focus on "Kroki Integration" and "Architecture & Data Flow"
 
 **What you need to know**:
-- **13 engines supported**: Mermaid (client ⚡), PlantUML (Kroki 🌐), Graphviz (Kroki 🌐), D2 (Kroki 🌐), Svgbob (🌐), Nomnoml (🌐), Seqdiag (🌐), Actdiag (🌐), Nwdiag (🌐), Rackdiag (🌐), ERD/Kroki (🌐), Bytefield (🌐), Packetdiag (🌐)
+- **14 engines supported**: Mermaid (client ⚡), PlantUML (Kroki 🌐), Graphviz (Kroki 🌐), D2 (Kroki 🌐), Svgbob (🌐), Ditaa (🌐), Nomnoml (🌐), Seqdiag (🌐), Actdiag (🌐), Nwdiag (🌐), Rackdiag (🌐), ERD/Kroki (🌐), Bytefield (🌐), Packetdiag (🌐)
 - **Engine config** in `data.js`: DIAGRAM_ENGINES array with id, label, clientSide, krokiType
 - **Rendering router**: renderDiagram() checks engine and routes to Mermaid or renderKroki()
 - **Security**: SVG responses sanitized (strips scripts and event handlers)
@@ -60,10 +60,10 @@ I need help with the template system in my multi-engine diagram converter.
 📄 **Please read**: `logs/project-context.md` (attach) — focus on the "Template System" section
 
 **What you need to know**:
-- Templates defined in `data.js` as TEMPLATES array (29 total)
+- Templates defined in `data.js` as TEMPLATES array (30 total)
 - Each template: key, label, category, **engine**, code
 - **Categories** (use-case based): Process & Flow, Software Architecture, Data & Relationships, Planning & Timeline, Networks & Graphs
-- **Distribution**: 9 Mermaid, 4 PlantUML, 3 Graphviz, 3 D2, 1 Svgbob, 1 Nomnoml, 1 Seqdiag, 1 Actdiag, 2 Nwdiag, 1 Rackdiag, 1 ERD (Kroki), 1 Bytefield, 1 Packetdiag
+- **Distribution**: 9 Mermaid, 4 PlantUML, 3 Graphviz, 3 D2, 1 Svgbob, 1 Ditaa, 1 Nomnoml, 1 Seqdiag, 1 Actdiag, 2 Nwdiag, 1 Rackdiag, 1 ERD (Kroki), 1 Bytefield, 1 Packetdiag
 - Template dropdown **filters by selected engine** automatically
 - Removed templates: kanban (unsupported), mindmap (parser hangs)
 
@@ -181,9 +181,9 @@ I need a quick fix for my diagram converter app.
 📄 **Optional**: Attach `logs/project-context.md` if you need full context (for larger fixes)
 
 **Quick summary of the app**:
-- Multi-engine diagram converter: Mermaid (client-side), plus 12 Kroki engines: PlantUML, Graphviz, D2, Svgbob, Nomnoml, Seqdiag, Actdiag, Nwdiag, Rackdiag, ERD, Bytefield, Packetdiag
+- Multi-engine diagram converter: Mermaid (client-side), plus 13 Kroki engines: PlantUML, Graphviz, D2, Svgbob, Ditaa, Nomnoml, Seqdiag, Actdiag, Nwdiag, Rackdiag, ERD, Bytefield, Packetdiag
 - Main files: app.js (logic), data.js (engines + templates), index.html (UI)
-- 29 templates across 13 engines, session caching, SVG sanitization
+- 30 templates across 14 engines, session caching, SVG sanitization
 - Uses Mermaid v10.9.4, Kroki API, Bulma CSS
 
 **The issue**: [describe concisely, e.g., "Engine badge not updating" or "Direction selector not disabling for D2"]
@@ -251,6 +251,6 @@ Specifically check:
 
 ---
 
-**Last Updated**: November 10, 2025  
-**Major Update**: Phase 2 engine expansion (added Svgbob, Nomnoml, Seqdiag, Actdiag, Nwdiag, Rackdiag, ERD, Bytefield, Packetdiag)  
+**Last Updated**: November 12, 2025  
+**Major Update**: Phase 2 engine expansion (added Svgbob, Ditaa, Nomnoml, Seqdiag, Actdiag, Nwdiag, Rackdiag, ERD, Bytefield, Packetdiag)  
 **Pro tip**: Bookmark this file! Whenever you start a new chat, just copy the relevant prompt and attach project-context.md. You'll save tons of time re-explaining the project. 🎯

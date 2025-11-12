@@ -5,6 +5,7 @@ const DIAGRAM_ENGINES = [
   { id: 'graphviz', label: 'Graphviz 🌐', clientSide: false, krokiType: 'graphviz' },
   { id: 'd2', label: 'D2 🌐', clientSide: false, krokiType: 'd2' },
   { id: 'svgbob', label: 'Svgbob 🌐', clientSide: false, krokiType: 'svgbob' },
+  { id: 'ditaa', label: 'Ditaa 🌐', clientSide: false, krokiType: 'ditaa' },
   { id: 'nomnoml', label: 'Nomnoml 🌐', clientSide: false, krokiType: 'nomnoml' },
   { id: 'seqdiag', label: 'Seqdiag 🌐', clientSide: false, krokiType: 'seqdiag' },
   { id: 'actdiag', label: 'Actdiag 🌐', clientSide: false, krokiType: 'actdiag' },
@@ -15,7 +16,7 @@ const DIAGRAM_ENGINES = [
   { id: 'packetdiag', label: 'Packetdiag 🌐', clientSide: false, krokiType: 'packetdiag' }
 ];
 
-// Template gallery (expanded: 29 curated across 13 engines)
+// Template gallery (expanded: 30 curated across 14 engines)
 const TEMPLATES = [
   // Mermaid templates (9)
   { key: 'flowchart_td', label: 'Flowchart (Top-Down)', category: 'Process & Flow', engine: 'mermaid', code: `flowchart TD
@@ -313,6 +314,20 @@ footer: Footer {
   /---\      /-----\
   | A |      |  B  |
   \---/      \-----/
+` },
+
+  // Ditaa (ASCII art boxes with colors/shadows)
+  { key: 'ditaa_basic', label: 'ASCII Art Diagram', category: 'Software Architecture', engine: 'ditaa', code: `+--------+   +-------+    +-------+
+|        |   | cBLU  |    | cGRE  |
+|  User  +-->+  Web  +--->+  API  |
+|        |   | Server|    | Layer |
++--------+   +-------+    +-------+
+                 |             |
+                 v             v
+            +--------+    +---------+
+            | Cache  |    |Database |
+            |  cYEL  |    | cRED    |
+            +--------+    +---------+
 ` },
 
   // Nomnoml (conceptual class/ER style)

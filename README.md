@@ -1,11 +1,11 @@
 # Multi-Engine Diagram Converter
 
-Convert diagram code to SVG and PNG images with support for 13 different diagram engines.
+Convert diagram code to SVG and PNG images with support for 14 different diagram engines.
 
 ## Features
 
-- 🎨 **13 diagram engines** - Mermaid (client-side) + 12 Kroki-backed engines
-- 📦 **29 curated templates** - Get started quickly with pre-built examples
+- 🎨 **14 diagram engines** - Mermaid (client-side) + 13 Kroki-backed engines
+- 📦 **30 curated templates** - Get started quickly with pre-built examples
 - 💾 **Export to SVG/PNG** - High-quality downloads with customizable scale and padding
 - 🎯 **Live preview** - See your diagram update in real-time
 - 💻 **Runs locally** - Mermaid renders in your browser, no internet needed
@@ -17,12 +17,13 @@ Convert diagram code to SVG and PNG images with support for 13 different diagram
 
 ### Quick List (Copy-Paste Friendly)
 ```
-Supported Diagram Engines (13 total):
+Supported Diagram Engines (14 total):
 • Mermaid (client-side)
 • PlantUML
 • Graphviz
 • D2
 • Svgbob
+• Ditaa
 • Nomnoml
 • Seqdiag
 • Actdiag
@@ -71,6 +72,7 @@ Supported Diagram Engines (13 total):
 | Engine | Description | Use Cases |
 |--------|-------------|-----------|
 | **Svgbob** 🌐 | ASCII art to SVG | Quick whiteboard-style sketches, napkin diagrams |
+| **Ditaa** 🌐 | ASCII diagrams with boxes | Architecture sketches, box diagrams, colored boxes with shadows |
 
 ## Quick Start
 
@@ -83,7 +85,7 @@ Supported Diagram Engines (13 total):
 
 ## Template Library
 
-**29 templates across 13 engines:**
+**30 templates across 14 engines:**
 - **Mermaid (9)**: Flowchart TD/LR, Sequence, Class, State, ER, Git Graph, User Journey, Quadrant, Timeline
 - **PlantUML (4)**: Component, Use Case, Activity, Deployment
 - **Graphviz (3)**: Directed Graph, Hierarchical Tree, Network Topology
@@ -93,6 +95,7 @@ Supported Diagram Engines (13 total):
 - **Seqdiag (1)**: Sequence Diagram
 - **Actdiag (1)**: Activity Diagram
 - **Svgbob (1)**: ASCII Sketch
+- **Ditaa (1)**: ASCII Art Diagram
 - **Nomnoml (1)**: Conceptual Model
 - **ERD (1)**: Entity-Relationship
 - **Bytefield (1)**: Bytefield Map
