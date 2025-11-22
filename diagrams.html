@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Diagram Catalogue</title>
+  <!-- Local Bulma first, CDN fallback (loads after if online) -->
+  <link rel="stylesheet" href="bulma.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .engine-badge { font-size: 0.75rem; margin-left: .5rem; }
+    .template-actions { margin-top: .35rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+    pre.code-block { background:#1e1e1e; color:#eee; padding:0.75rem; overflow:auto; border-radius:4px; font-size:13px; }
+    .is-hidden { display:none !important; }
+    .category-block { margin-bottom:2.25rem; }
+    .toc a { display:block; font-size:.85rem; margin:.15rem 0; }
+    .roadmap li { margin-bottom:.25rem; }
+    .search-bar { margin: 1.5rem 0 1rem; }
+  </style>
+</head>
+<body>
+  <nav class="navbar is-primary" role="navigation">
+    <div class="navbar-brand">
+      <a class="navbar-item has-text-weight-bold" href="index.html">Diagram Converter</a>
+    </div>
+    <div class="navbar-menu">
+      <div class="navbar-start">
+        <a class="navbar-item" href="index.html">Editor</a>
+        <a class="navbar-item is-active" href="diagrams.html">Catalogue</a>
+        <a class="navbar-item" href="kroki-local.md" target="_blank">Kroki Local Guide</a>
+      </div>
+    </div>
+  </nav>
+
+  <section class="section">
+    <div class="container">
+      <h1 class="title is-3">Diagram Catalogue</h1>
+      <p class="subtitle is-6" id="summary-line">Loading catalogue…</p>
+
+      <div class="columns">
+        <div class="column is-3">
+          <aside class="menu">
+            <p class="menu-label">On this page</p>
+            <div class="toc" id="toc"></div>
+            <p class="menu-label">Filters</p>
+            <div class="search-bar">
+              <input id="filter-text" class="input" type="text" placeholder="Search (engine, template, category)…">
+              <div class="select mt-2 is-fullwidth">
+                <select id="filter-engine">
+                  <option value="">All engines</option>
+                </select>
+              </div>
+            </div>
+          </aside>
+        </div>
+        <div class="column is-9" id="catalogue-root">
+          <article class="message is-info is-small">
+            <div class="message-body">
+              This page lists all supported diagram engines and starter templates. Use “Load in editor” to open any template directly in the main app for customization.
+            </div>
+          </article>
+
+          <h2 class="title is-4" id="engines">Engines</h2>
+          <div id="engine-list" class="mb-5"></div>
+
+          <h2 class="title is-4" id="templates">Templates</h2>
+          <div id="template-catalogue"></div>
+
+          <h2 class="title is-4" id="extend">Extending</h2>
+          <div class="content">
+            <ol>
+              <li>Edit <code>data.js</code> and add an object to <code>TEMPLATES</code> (key, label, category, engine, code).</li>
+              <li>Use existing categories or introduce a new one (will appear automatically).</li>
+              <li>Reload the app; the template will show when its engine is selected.</li>
+            </ol>
+            <p>See <code>logs/project-context.md</code> for full details of the Template System.</p>
+          </div>
+
+          <h2 class="title is-4" id="roadmap">Roadmap (Deferred)</h2>
+          <ul class="roadmap">
+            <li><strong>BPMN</strong> – XML editing complexity (deferred).</li>
+            <li><strong>Vega / Vega-Lite</strong> – Large client libs (bundle size concerns).</li>
+            <li><strong>Excalidraw</strong> – Interactive canvas editor out of current scope.</li>
+          </ul>
+
+          <h2 class="title is-4" id="offline">Offline & Self-Hosting</h2>
+          <p>Mermaid ⚡ and Plain Text 📝 engines work fully offline. Remote engines (🌐) require network access to Kroki. You can self-host Kroki locally (see guide) and set the base URL in the editor for offline-ish use.</p>
+
+          <footer class="mt-6">
+            <p class="has-text-grey is-size-7" id="last-updated"></p>
+            <p class="has-text-grey is-size-7">Return to the <a href="index.html">Editor</a>.</p>
+          </footer>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="data.js"></script>
+  <script>
+  (function() {
+    const enginesArea = document.getElementById('engine-list');
+    const templatesArea = document.getElementById('template-catalogue');
+    const summaryLine = document.getElementById('summary-line');
+    const toc = document.getElementById('toc');
+    const filterText = document.getElementById('filter-text');
+    const filterEngine = document.getElementById('filter-engine');
+
+    // Support globals declared with const (not enumerable on window); fall back to window props if needed
+    const DIAGRAM_ENGINES_REF = (typeof DIAGRAM_ENGINES !== 'undefined') ? DIAGRAM_ENGINES : window.DIAGRAM_ENGINES;
+    const TEMPLATES_REF = (typeof TEMPLATES !== 'undefined') ? TEMPLATES : window.TEMPLATES;
+
+    if (!DIAGRAM_ENGINES_REF || !TEMPLATES_REF) {
+      enginesArea.innerHTML = '<p class="has-text-danger">Catalogue data not loaded. Check that data.js is present.</p>';
+      return;
+    }
+
+    // Description map
+    const ENGINE_INFO = {
+      mermaid: { desc: 'Popular text-based diagramming covering many categories.', uses: ['Flowcharts','Sequences','Class & State','Timelines','Git graphs'] },
+      plaintext: { desc: 'Monospace canvas rendering of raw text & ASCII box diagrams.', uses: ['ASCII documentation','HTML examples','Wireframes','Teaching notes'] },
+      plantuml: { desc: 'Versatile UML & more via concise syntax.', uses: ['Component','Use case','Activity','Deployment'] },
+      graphviz: { desc: 'General graph visualization (DOT language).', uses: ['Dependency graphs','Trees','Network topology'] },
+      d2: { desc: 'Modern diagram language with layout hints.', uses: ['System architecture','Layered views','Grid layouts'] },
+      svgbob: { desc: 'Free-form ASCII art translated to SVG.', uses: ['Sketches','Whiteboard ideas'] },
+      ditaa: { desc: 'ASCII boxes with colors & shadows.', uses: ['Architecture sketches','Colored block diagrams'] },
+      nomnoml: { desc: 'Conceptual UML-like modelling.', uses: ['Class concepts','Light ER models'] },
+      seqdiag: { desc: 'Alternate sequence diagrams.', uses: ['Client-server flows'] },
+      actdiag: { desc: 'Activity/process flow with blocks.', uses: ['Pipeline steps'] },
+      nwdiag: { desc: 'Network & VLAN / WAN segments.', uses: ['Subnets','Campus layouts'] },
+      rackdiag: { desc: 'Physical rack equipment layout.', uses: ['Inventory','Rack planning'] },
+      erd: { desc: 'Entity relationship (tables, keys).', uses: ['Simple schemas'] },
+      bytefield: { desc: 'Memory and packet field maps.', uses: ['Binary layouts','Protocol fields'] },
+      packetdiag: { desc: 'Protocol stack packet diagrams.', uses: ['Frame structure'] }
+    };
+
+    // Build engine filter options
+  DIAGRAM_ENGINES_REF.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.id; opt.textContent = e.label;
+      filterEngine.appendChild(opt);
+    });
+
+    // Group engines
+  const clientSide = DIAGRAM_ENGINES_REF.filter(e => e.clientSide);
+  const remote = DIAGRAM_ENGINES_REF.filter(e => !e.clientSide);
+
+    function engineBadge(e) {
+      return `<span class="tag is-light engine-badge">${e.label.split(' ')[0]}${e.clientSide? ' ⚡':' 🌐'}</span>`;
+    }
+
+    function renderEngineGroup(title, list) {
+      const section = document.createElement('div');
+      section.className = 'mb-4';
+      section.innerHTML = `<h3 class="title is-5">${title} <span class="tag is-info is-light">${list.length}</span></h3>`;
+      list.forEach(e => {
+        const info = ENGINE_INFO[e.id] || { desc: 'No description', uses: [] };
+        const card = document.createElement('div');
+        card.className = 'box mb-2';
+        card.id = 'engine-' + e.id;
+        card.innerHTML = `<div style='display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;'>
+          <div>
+            <h4 class="title is-6" style="margin-bottom:.25rem;">${e.label}</h4>
+            <p class="mb-1">${info.desc}</p>
+            <p class="is-size-7 has-text-grey">Use cases: ${info.uses.join(', ')}</p>
+          </div>
+          <div>${e.clientSide? '<span class="tag is-success is-light">Client-side</span>' : '<span class="tag is-link is-light">Remote</span>'}</div>
+        </div>`;
+        section.appendChild(card);
+      });
+      enginesArea.appendChild(section);
+    }
+
+    renderEngineGroup('Client-Side Rendering', clientSide);
+    renderEngineGroup('Remote (Kroki)', remote);
+
+    // Templates grouped by category
+    const byCategory = {};
+  TEMPLATES_REF.forEach(t => {
+      if (!byCategory[t.category]) byCategory[t.category] = [];
+      byCategory[t.category].push(t);
+    });
+
+    function buildTemplateCard(t) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'box template-item';
+      wrapper.setAttribute('data-engine', t.engine);
+      wrapper.setAttribute('data-label', t.label.toLowerCase());
+      wrapper.setAttribute('data-category', t.category.toLowerCase());
+
+      const header = `<div style='display:flex;justify-content:space-between;align-items:center;gap:1rem;'>
+        <div>
+          <strong>${t.label}</strong> <span class="tag is-light is-small">${t.engine}</span>
+          <div class="is-size-7 has-text-grey">${t.category}</div>
+        </div>
+        <div class='template-actions'>
+          <button class='button is-small is-link' data-action='toggle' aria-label='Show code for ${t.label}'>Show code ▸</button>
+          <button class='button is-small is-info' data-action='copy' aria-label='Copy code for ${t.label}'>Copy</button>
+          <button class='button is-small is-success' data-action='load' aria-label='Load ${t.label} in editor'>Load in editor</button>
+        </div>
+      </div>`;
+
+      wrapper.innerHTML = header + `<pre class='code-block is-hidden' data-code-block></pre>`;
+      return wrapper;
+    }
+
+    Object.keys(byCategory).sort().forEach(cat => {
+      const list = byCategory[cat];
+      const block = document.createElement('div');
+      block.className = 'category-block';
+      block.id = 'category-' + cat.replace(/\s+/g,'-').toLowerCase();
+      block.innerHTML = `<h3 class='title is-5'>${cat} <span class='tag is-warning is-light'>${list.length}</span></h3>`;
+      list.forEach(t => block.appendChild(buildTemplateCard(t)));
+      templatesArea.appendChild(block);
+    });
+
+    // Event delegation for template actions
+    templatesArea.addEventListener('click', e => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      const action = btn.getAttribute('data-action');
+      const card = btn.closest('.template-item');
+      if (!card) return;
+      const codeEl = card.querySelector('[data-code-block]');
+      const label = card.querySelector('strong').textContent;
+      const engine = card.getAttribute('data-engine');
+  const tmpl = TEMPLATES_REF.find(t => t.label === label && t.engine === engine);
+      if (!tmpl) return;
+
+      if (action === 'toggle') {
+        if (codeEl.classList.contains('is-hidden')) {
+          codeEl.textContent = tmpl.code.trim();
+          codeEl.classList.remove('is-hidden');
+          btn.textContent = 'Hide code ▾';
+        } else {
+          codeEl.classList.add('is-hidden');
+          btn.textContent = 'Show code ▸';
+        }
+      } else if (action === 'copy') {
+        navigator.clipboard.writeText(tmpl.code).then(()=>btn.textContent='Copied ✓');
+        setTimeout(()=>btn.textContent='Copy',1200);
+      } else if (action === 'load') {
+        const payload = { code: tmpl.code, cfg: { engine: tmpl.engine } };
+        const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
+        window.location.href = `index.html#${encoded}`;
+      }
+    });
+
+    // Filtering
+    function applyFilter() {
+      const textVal = filterText.value.trim().toLowerCase();
+      const engineVal = filterEngine.value;
+      document.querySelectorAll('.template-item').forEach(el => {
+        const matchText = !textVal || el.getAttribute('data-label').includes(textVal) || el.getAttribute('data-category').includes(textVal) || el.getAttribute('data-engine').includes(textVal);
+        const matchEngine = !engineVal || el.getAttribute('data-engine') === engineVal;
+        if (matchText && matchEngine) {
+          el.style.display = '';
+        } else {
+          el.style.display = 'none';
+        }
+      });
+    }
+    filterText.addEventListener('input', applyFilter);
+    filterEngine.addEventListener('change', applyFilter);
+
+    // Build TOC
+    const tocLinks = [
+      { id: 'engines', label: 'Engines' },
+      { id: 'templates', label: 'Templates' },
+      { id: 'extend', label: 'Extending' },
+      { id: 'roadmap', label: 'Roadmap' },
+      { id: 'offline', label: 'Offline' }
+    ];
+    tocLinks.forEach(l => {
+      const a = document.createElement('a');
+      a.href = '#' + l.id; a.textContent = l.label; toc.appendChild(a);
+    });
+
+    // Summary line & updated stamp
+  summaryLine.textContent = `${DIAGRAM_ENGINES_REF.length} engines, ${TEMPLATES_REF.length} templates ready to use.`;
+    document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toISOString().slice(0,10);
+  })();
+  </script>
+</body>
+</html>

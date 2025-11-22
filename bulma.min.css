@@ -1,0 +1,64 @@
+/* Local Bulma placeholder for offline use.
+   For full styling, replace this file with the official Bulma 0.9.4 minified CSS.
+   Download: https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css
+*/
+html,body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;}
+.navbar{background:#00d1b2;color:#fff;padding:0 .75rem;min-height:3.25rem;display:flex;align-items:center;}
+.navbar .navbar-item{color:#fff;text-decoration:none;padding:.5rem .75rem;}
+.navbar .navbar-item:hover{background:#00b89c;}
+.section{padding:2rem 1.5rem;}
+.container{max-width:1100px;margin:0 auto;}
+.box{background:#fff;border:1px solid #e5e5e5;border-radius:6px;padding:1.25rem;}
+.button{display:inline-block;background:#fff;border:1px solid #dbdbdb;border-radius:4px;padding:.5em 1em;font-size:1rem;cursor:pointer;}
+.button.is-primary{background:#00d1b2;border-color:#00d1b2;color:#fff;}
+.button.is-link{background:#485fc7;border-color:#485fc7;color:#fff;}
+.button.is-success{background:#48c78e;border-color:#48c78e;color:#fff;}
+.button.is-info{background:#3e8ed0;border-color:#3e8ed0;color:#fff;}
+.button.is-warning{background:#ffe08a;border-color:#ffe08a;color:#000;}
+.button.is-light{background:#f5f5f5;border-color:#dbdbdb;color:#363636;}
+.button.is-small{font-size:.75rem;padding:.25em .75em;}
+.tag{display:inline-flex;background:#f5f5f5;color:#4a4a4a;border-radius:4px;font-size:.75rem;height:2em;align-items:center;padding:0 .75em;}
+.notification{background:#f5f5f5;border-radius:4px;padding:1rem;font-size:.9rem;}
+.title{font-size:1.5rem;font-weight:600;margin:0 0 .75rem;}
+.subtitle{font-size:1rem;font-weight:400;margin:0 0 1rem;color:#4a4a4a;}
+.is-size-7{font-size:.75rem;}
+.columns{display:flex;flex-wrap:wrap;margin:-.75rem;}
+.column{flex:1 1 0;padding:.75rem;min-width:250px;}
+.columns.is-multiline .column{flex:1 1 300px;}
+.input,select,textarea{border:1px solid #dbdbdb;border-radius:4px;padding:.5em .75em;font-size:1rem;width:100%;box-sizing:border-box;}
+.select{display:inline-block;}
+.select select{width:100%;}
+.textarea{resize:vertical;}
+.dropdown{position:relative;display:inline-block;}
+.dropdown-menu{position:absolute;top:100%;left:0;min-width:12rem;background:#fff;border:1px solid #dbdbdb;border-radius:4px;padding:.5rem;display:none;z-index:10;}
+.dropdown.is-active .dropdown-menu{display:block;}
+.dropdown-content .dropdown-item{display:block;padding:.375rem .75rem;color:#363636;text-decoration:none;font-size:.85rem;border-radius:2px;}
+.dropdown-content .dropdown-item:hover{background:#f5f5f5;}
+.is-hidden{display:none !important;}
+.help{font-size:.75rem;color:#7a7a7a;margin-top:.25rem;}
+.buttons{display:flex;flex-wrap:wrap;gap:.5rem;}
+.button.is-warning{color:#000;}
+pre{background:#1e1e1e;color:#eee;padding:.75rem;border-radius:4px;font-size:13px;overflow:auto;}
+.box + .box{margin-top:1rem;}
+.notification.is-danger{background:#f14668;color:#fff;}
+.notification.is-info{background:#3e8ed0;color:#fff;}
+.notification.is-success{background:#48c78e;color:#fff;}
+.notification.is-warning{background:#ffe08a;color:#000;}
+.message{background:#f5f5f5;border-radius:4px;}
+.message-header{background:#4a4a4a;color:#fff;padding:.5em .75em;border-radius:4px 4px 0 0;font-size:.9rem;}
+.message-body{padding:.75em .9em;font-size:.85rem;}
+.footer{background:#fafafa;padding:2rem 1.5rem;font-size:.85rem;color:#4a4a4a;}
+.tag.is-light{background:#f5f5f5;color:#4a4a4a;}
+.tag.is-info{background:#3e8ed0;color:#fff;}
+.tag.is-success{background:#48c78e;color:#fff;}
+.tag.is-warning{background:#ffe08a;color:#000;}
+.tag.is-link{background:#485fc7;color:#fff;}
+.tag.is-primary{background:#00d1b2;color:#fff;}
+.tag.is-small{font-size:.65rem;height:1.6em;}
+.menu-label{font-size:.7rem;text-transform:uppercase;color:#7a7a7a;margin:.5rem 0;}
+.menu a{display:block;padding:.35rem .5rem;border-radius:2px;color:#363636;font-size:.75rem;text-decoration:none;}
+.menu a:hover{background:#f5f5f5;}
+.field{margin-bottom:.75rem;}
+.control{position:relative;}
+.button.is-light:hover{background:#eee;}
+.button:hover{border-color:#b5b5b5;}

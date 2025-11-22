@@ -4,7 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Mermaid → Image Converter</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <!-- Local Bulma first, CDN fallback for full fidelity -->
+  <link rel="stylesheet" href="bulma.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="style.css">
   <!-- Mermaid -->
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.4/dist/mermaid.min.js"></script>
@@ -15,6 +17,13 @@
   <nav class="navbar is-primary" role="navigation">
     <div class="navbar-brand">
       <a class="navbar-item has-text-weight-bold">Mermaid → Image Converter</a>
+    </div>
+    <div class="navbar-menu">
+      <div class="navbar-start">
+        <a class="navbar-item is-active" href="index.html">Editor</a>
+        <a class="navbar-item" href="diagrams.html">Catalogue</a>
+        <a class="navbar-item" href="kroki-local.md" target="_blank">Kroki Local Guide</a>
+      </div>
     </div>
   </nav>
 
