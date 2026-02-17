@@ -205,6 +205,7 @@ async function downloadPNG() {
     ctx.imageSmoothingEnabled = true;
 
     // Prefer native browser SVG rendering for best text fidelity
+    // External font references are sanitized to prevent canvas tainting
     try {
       await drawSvgToCanvasNative(svgText, canvas);
     } catch (nativeErr) {
@@ -633,23 +634,38 @@ async function downloadPngFromKroki(engineId, code, filename = 'diagram') {
 
 async function drawSvgToCanvasNative(svgText, canvas) {
   return new Promise((resolve, reject) => {
-    const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
+    // Strip external font references to prevent canvas tainting
+    // External fonts loaded during SVG rendering cause canvas tainting
+    let sanitizedSvg = svgText
+      .replace(/font-family:\s*Inter[^;]*/gi, 'font-family:system-ui,-apple-system,sans-serif')
+      .replace(/font-family:\s*['"]Inter['"][^;]*/gi, 'font-family:system-ui,-apple-system,sans-serif')
+      .replace(/@font-face[^}]*}/gi, '')
+      .replace(/@import\s+url\([^)]+\)/gi, '');
+
+    // More aggressive: remove any font-family that starts with a known external font
+    const externalFonts = ['Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins'];
+    externalFonts.forEach(font => {
+      sanitizedSvg = sanitizedSvg.replace(new RegExp(`font-family:[^;]*${font}[^;]*`, 'gi'), 'font-family:sans-serif');
+    });
+
+    // Use data URL instead of blob URL to avoid potential tainting
+    const encodedSvg = encodeURIComponent(sanitizedSvg)
+      .replace(/'/g, '%27')
+      .replace(/"/g, '%22');
+    const url = `data:image/svg+xml;charset=utf-8,${encodedSvg}`;
+
     const img = new Image();
     img.onload = () => {
       try {
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
         resolve();
       } catch (err) {
-        URL.revokeObjectURL(url);
         reject(err);
       }
     };
     img.onerror = (e) => {
-      URL.revokeObjectURL(url);
       reject(e);
     };
     img.src = url;
